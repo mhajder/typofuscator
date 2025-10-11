@@ -1,0 +1,26 @@
+{
+	"name": "Text Typofuscator",
+	"short_name": "Typofuscator",
+	"description": "Text obfuscation tool that scrambles words while maintaining readability",
+	"start_url": "./",
+	"scope": "./",
+	"display": "standalone",
+	"orientation": "portrait-primary",
+	"theme_color": "#4f46e5",
+	"background_color": "#ffffff",
+	"categories": ["productivity", "utilities", "text"],
+	"icons": [
+		{
+			"src": "./icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "./icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		}
+	]
+}
