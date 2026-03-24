@@ -402,6 +402,94 @@ describe('typofuscator', () => {
 			expect(defaultSettings.preserveCase).toBe(true);
 			expect(defaultSettings.customAlgorithm).toBe('swap');
 			expect(defaultSettings.excludeWords).toEqual([]);
+			expect(defaultSettings.similarCharMode).toBe('off');
+			expect(defaultSettings.similarCharStyle).toBe('mixed');
+			expect(defaultSettings.similarCharRate).toBe(35);
+		});
+	});
+
+	describe('encryptText - similar character replacement', () => {
+		it('should replace all eligible characters in cyrillic mode', () => {
+			const result = encryptText('camera', {
+				minWordLength: 99,
+				similarCharMode: 'all',
+				similarCharStyle: 'cyrillic',
+				seed: 42
+			});
+
+			expect(result).toBe('самеrа');
+		});
+
+		it('should replace all eligible characters in greek mode', () => {
+			const result = encryptText('MATH', {
+				minWordLength: 99,
+				similarCharMode: 'all',
+				similarCharStyle: 'greek',
+				seed: 42
+			});
+
+			expect(result).toBe('ΜΑΤΗ');
+		});
+
+		it('should not replace any characters when replacement mode is off', () => {
+			const text = 'camera';
+			const baseSettings: Partial<TypofuscatorSettings> = {
+				customAlgorithm: 'reverse',
+				preserveFirstLetter: false,
+				preserveLastLetter: false,
+				minWordLength: 1,
+				seed: 42
+			};
+
+			const withoutReplacement = encryptText(text, {
+				...baseSettings,
+				similarCharMode: 'off'
+			});
+
+			const withReplacement = encryptText(text, {
+				...baseSettings,
+				similarCharMode: 'all',
+				similarCharStyle: 'cyrillic'
+			});
+
+			expect(withoutReplacement).toBe('aremac');
+			expect(withReplacement).not.toBe(withoutReplacement);
+			expect(withReplacement).toMatch(/[^\p{ASCII}]/u);
+		});
+
+		it('should respect similar character rate when mode is some', () => {
+			const text = 'camera';
+			const result = encryptText(text, {
+				customAlgorithm: 'reverse',
+				preserveFirstLetter: false,
+				preserveLastLetter: false,
+				minWordLength: 1,
+				similarCharMode: 'some',
+				similarCharStyle: 'latin',
+				similarCharRate: 0,
+				seed: 42
+			});
+
+			expect(result).toBe('aremac');
+		});
+
+		it('should fallback to default style for legacy unsupported style values', () => {
+			const legacySettings: Partial<TypofuscatorSettings> = {
+				minWordLength: 99,
+				similarCharMode: 'all',
+				similarCharStyle: 'fullwidth' as unknown as TypofuscatorSettings['similarCharStyle'],
+				seed: 42
+			};
+
+			const legacyResult = encryptText('camera', legacySettings);
+			const defaultStyleResult = encryptText('camera', {
+				minWordLength: 99,
+				similarCharMode: 'all',
+				similarCharStyle: 'mixed',
+				seed: 42
+			});
+
+			expect(legacyResult).toBe(defaultStyleResult);
 		});
 	});
 

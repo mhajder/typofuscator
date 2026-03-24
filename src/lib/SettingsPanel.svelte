@@ -1,5 +1,11 @@
 <script lang="ts">
-	import type { TypofuscatorSettings, ScrambleIntensity, ScrambleAlgorithm } from './typofuscator';
+	import type {
+		TypofuscatorSettings,
+		ScrambleIntensity,
+		ScrambleAlgorithm,
+		SimilarCharMode,
+		SimilarCharStyle
+	} from './typofuscator';
 	import { defaultSettings } from './typofuscator';
 
 	export let settings: TypofuscatorSettings = { ...defaultSettings };
@@ -37,6 +43,32 @@
 		{ value: 'shuffle', label: 'Shuffle', description: 'Complete middle shuffling' },
 		{ value: 'reverse', label: 'Reverse', description: 'Reverse middle characters' }
 	];
+
+	const similarCharModeOptions: { value: SimilarCharMode; label: string; description: string }[] = [
+		{ value: 'off', label: 'Off', description: 'Disable similar-character replacement' },
+		{ value: 'some', label: 'Some', description: 'Replace only a percentage of eligible letters' },
+		{ value: 'all', label: 'All', description: 'Replace every eligible letter' }
+	];
+
+	const similarCharStyleOptions: { value: SimilarCharStyle; label: string; description: string }[] =
+		[
+			{ value: 'mixed', label: 'Mixed', description: 'Use all available replacement sets' },
+			{
+				value: 'cyrillic',
+				label: 'Cyrillic lookalikes',
+				description: 'Use homoglyphs from Cyrillic'
+			},
+			{
+				value: 'latin',
+				label: 'Latin alternatives',
+				description: 'Use IPA/Latin-like alternatives'
+			},
+			{
+				value: 'greek',
+				label: 'Greek lookalikes',
+				description: 'Use homoglyphs from Greek alphabet'
+			}
+		];
 </script>
 
 <div class="settings-panel" class:open={isOpen}>
@@ -202,6 +234,62 @@
 					</label>
 					<span class="setting-description">Maintain original capitalization pattern</span>
 				</div>
+			</div>
+
+			<!-- Similar Character Replacement -->
+			<div class="setting-group">
+				<h4 class="setting-group-title">Similar Character Replacement</h4>
+				<div class="setting-row">
+					<span class="input-label">Replacement amount:</span>
+					<div class="radio-group">
+						{#each similarCharModeOptions as option (option.value)}
+							<label class="radio-label">
+								<input type="radio" bind:group={settings.similarCharMode} value={option.value} />
+								<span class="radio-button"></span>
+								<div class="radio-content">
+									<span class="radio-title">{option.label}</span>
+									<span class="radio-description">{option.description}</span>
+								</div>
+							</label>
+						{/each}
+					</div>
+				</div>
+
+				{#if settings.similarCharMode !== 'off'}
+					<div class="setting-row">
+						<span class="input-label">Character style:</span>
+						<div class="radio-group">
+							{#each similarCharStyleOptions as option (option.value)}
+								<label class="radio-label">
+									<input type="radio" bind:group={settings.similarCharStyle} value={option.value} />
+									<span class="radio-button"></span>
+									<div class="radio-content">
+										<span class="radio-title">{option.label}</span>
+										<span class="radio-description">{option.description}</span>
+									</div>
+								</label>
+							{/each}
+						</div>
+					</div>
+
+					{#if settings.similarCharMode === 'some'}
+						<div class="setting-row">
+							<label for="similarCharRate" class="input-label">Replacement rate:</label>
+							<input
+								id="similarCharRate"
+								type="range"
+								min="0"
+								max="100"
+								step="1"
+								bind:value={settings.similarCharRate}
+								class="range-input"
+							/>
+							<span class="setting-description"
+								>{settings.similarCharRate}% of eligible letters</span
+							>
+						</div>
+					{/if}
+				{/if}
 			</div>
 
 			<!-- Exclude Words -->
@@ -467,6 +555,11 @@
 	:global(.dark) .number-input:disabled {
 		background: #1f2937;
 		color: #6b7280;
+	}
+
+	.range-input {
+		accent-color: #3b82f6;
+		width: min(320px, 100%);
 	}
 
 	.text-input {

@@ -1,5 +1,7 @@
 export type ScrambleIntensity = 'light' | 'medium' | 'heavy';
 export type ScrambleAlgorithm = 'swap' | 'shuffle' | 'reverse';
+export type SimilarCharMode = 'off' | 'some' | 'all';
+export type SimilarCharStyle = 'mixed' | 'cyrillic' | 'latin' | 'greek';
 
 export interface TypofuscatorSettings {
 	// First/Last letter control
@@ -27,6 +29,9 @@ export interface TypofuscatorSettings {
 	seed?: number;
 	excludeWords: string[];
 	customAlgorithm: ScrambleAlgorithm;
+	similarCharMode: SimilarCharMode;
+	similarCharStyle: SimilarCharStyle;
+	similarCharRate: number;
 }
 
 export const defaultSettings: TypofuscatorSettings = {
@@ -42,7 +47,89 @@ export const defaultSettings: TypofuscatorSettings = {
 	includeMixedCase: true,
 	preserveCase: true,
 	excludeWords: [],
-	customAlgorithm: 'swap'
+	customAlgorithm: 'swap',
+	similarCharMode: 'off',
+	similarCharStyle: 'mixed',
+	similarCharRate: 35
+};
+
+const cyrillicLookalikes: Record<string, string[]> = {
+	a: ['а'],
+	A: ['А'],
+	b: ['Ь'],
+	B: ['В'],
+	c: ['с'],
+	C: ['С'],
+	e: ['е'],
+	E: ['Е'],
+	h: ['һ'],
+	H: ['Н'],
+	i: ['і'],
+	I: ['І'],
+	k: ['к'],
+	K: ['К'],
+	m: ['м'],
+	M: ['М'],
+	n: ['п'],
+	N: ['П'],
+	o: ['о'],
+	O: ['О'],
+	p: ['р'],
+	P: ['Р'],
+	t: ['т'],
+	T: ['Т'],
+	x: ['х'],
+	X: ['Х'],
+	y: ['у'],
+	Y: ['У']
+};
+
+const latinLookalikes: Record<string, string[]> = {
+	a: ['ɑ'],
+	A: ['Ɑ'],
+	b: ['Ƅ'],
+	B: ['Ƀ'],
+	e: ['ɛ'],
+	E: ['Ɛ'],
+	g: ['ɡ'],
+	G: ['Ɠ'],
+	i: ['ɩ'],
+	I: ['Ɩ'],
+	o: ['ɵ'],
+	O: ['Ɵ'],
+	p: ['ρ'],
+	P: ['Ƥ'],
+	u: ['ʋ'],
+	U: ['Ʉ']
+};
+
+const greekLookalikes: Record<string, string[]> = {
+	a: ['α'],
+	A: ['Α'],
+	b: ['β'],
+	B: ['Β'],
+	e: ['ε'],
+	E: ['Ε'],
+	h: ['η'],
+	H: ['Η'],
+	i: ['ι'],
+	I: ['Ι'],
+	k: ['κ'],
+	K: ['Κ'],
+	m: ['μ'],
+	M: ['Μ'],
+	n: ['ν'],
+	N: ['Ν'],
+	o: ['ο'],
+	O: ['Ο'],
+	p: ['ρ'],
+	P: ['Ρ'],
+	t: ['τ'],
+	T: ['Τ'],
+	x: ['χ'],
+	X: ['Χ'],
+	y: ['υ'],
+	Y: ['Υ']
 };
 
 // Seeded random number generator for reproducible results
@@ -64,7 +151,7 @@ class SeededRandom {
  * human readability by introducing controlled chaos within words.
  */
 export function encryptText(text: string, settings: Partial<TypofuscatorSettings> = {}): string {
-	const config = { ...defaultSettings, ...settings };
+	const config = normalizeSettings({ ...defaultSettings, ...settings });
 	const rng = new SeededRandom(config.seed);
 
 	// Create regex pattern based on settings - use word boundary approach
@@ -86,24 +173,24 @@ export function encryptText(text: string, settings: Partial<TypofuscatorSettings
 				continue;
 			}
 
-			// Skip words below minimum length
-			if (wordLen < config.minWordLength) {
-				scrambledTokens.push(word);
-				continue;
-			}
+			let transformedWord = word;
 
-			let scrambledWord = scrambleWord(word, config, rng);
+			// Skip scrambling for words below minimum length.
+			if (wordLen >= config.minWordLength) {
+				transformedWord = scrambleWord(word, config, rng);
 
-			// Handle duplicate detection with retries
-			if (config.avoidDuplicates && scrambledWord === word) {
-				let retries = 0;
-				while (scrambledWord === word && retries < config.maxRetries) {
-					scrambledWord = scrambleWord(word, config, rng);
-					retries++;
+				// Handle duplicate detection with retries
+				if (config.avoidDuplicates && transformedWord === word) {
+					let retries = 0;
+					while (transformedWord === word && retries < config.maxRetries) {
+						transformedWord = scrambleWord(word, config, rng);
+						retries++;
+					}
 				}
 			}
 
-			scrambledTokens.push(scrambledWord);
+			transformedWord = replaceWithSimilarCharacters(transformedWord, config, rng);
+			scrambledTokens.push(transformedWord);
 		} else {
 			// Separators, punctuation, and whitespace are added without changes
 			scrambledTokens.push(token);
@@ -261,6 +348,84 @@ function preserveOriginalCase(scrambled: string, original: string): string {
 			return char;
 		})
 		.join('');
+}
+
+function replaceWithSimilarCharacters(
+	word: string,
+	config: TypofuscatorSettings,
+	rng: SeededRandom
+): string {
+	if (config.similarCharMode === 'off') {
+		return word;
+	}
+
+	const rate = Math.max(0, Math.min(100, config.similarCharRate));
+	const shouldReplace = (): boolean => {
+		if (config.similarCharMode === 'all') {
+			return true;
+		}
+		if (config.similarCharMode === 'some') {
+			return rng.next() < rate / 100;
+		}
+		return false;
+	};
+
+	return word
+		.split('')
+		.map((char) => {
+			const variants = getSimilarCharacterVariants(char, config.similarCharStyle);
+			if (variants.length === 0 || !shouldReplace()) {
+				return char;
+			}
+
+			const idx = Math.floor(rng.next() * variants.length);
+			return variants[idx] ?? char;
+		})
+		.join('');
+}
+
+function getSimilarCharacterVariants(char: string, style: SimilarCharStyle): string[] {
+	if (style === 'mixed') {
+		const combined = [
+			...getSimilarCharacterVariants(char, 'cyrillic'),
+			...getSimilarCharacterVariants(char, 'latin'),
+			...getSimilarCharacterVariants(char, 'greek')
+		];
+		return Array.from(new Set(combined));
+	}
+
+	if (style === 'cyrillic') {
+		return cyrillicLookalikes[char] ?? [];
+	}
+
+	if (style === 'latin') {
+		return latinLookalikes[char] ?? [];
+	}
+
+	if (style === 'greek') {
+		return greekLookalikes[char] ?? [];
+	}
+
+	return [];
+}
+
+function normalizeSettings(settings: TypofuscatorSettings): TypofuscatorSettings {
+	const allowedStyles: SimilarCharStyle[] = ['mixed', 'cyrillic', 'latin', 'greek'];
+	const style = allowedStyles.includes(settings.similarCharStyle)
+		? settings.similarCharStyle
+		: defaultSettings.similarCharStyle;
+
+	const allowedModes: SimilarCharMode[] = ['off', 'some', 'all'];
+	const mode = allowedModes.includes(settings.similarCharMode)
+		? settings.similarCharMode
+		: defaultSettings.similarCharMode;
+
+	return {
+		...settings,
+		similarCharStyle: style,
+		similarCharMode: mode,
+		similarCharRate: Math.max(0, Math.min(100, settings.similarCharRate))
+	};
 }
 
 // Legacy function for backward compatibility

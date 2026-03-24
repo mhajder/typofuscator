@@ -5,6 +5,7 @@ A sophisticated web application that obfuscates text by scrambling letters withi
 ## Features
 
 - **Text Obfuscation**: Scramble text while keeping it human-readable
+- **Homoglyph Replacement**: Replace some or all letters with similar-looking characters (e.g., Cyrillic, Latin alternates)
 - **Dark Theme**: Toggle between light and dark themes with automatic system theme detection on first visit
 - **Advanced Settings**: Customize scrambling intensity, algorithms, and word exclusions
 - **Reproducible Results**: Use seed values for consistent scrambling
