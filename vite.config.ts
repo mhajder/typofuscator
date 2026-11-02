@@ -14,9 +14,6 @@ export default defineConfig({
 				precompress: true,
 				strict: true
 			}),
-			serviceWorker: {
-				register: false
-			},
 			paths: {
 				base: (process.env.BASE_PATH ?? '') as '' | `/${string}`
 			}
