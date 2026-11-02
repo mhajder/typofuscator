@@ -71,7 +71,9 @@ export default [
 				alert: 'readonly',
 				localStorage: 'readonly',
 				URLSearchParams: 'readonly',
-				KeyboardEvent: 'readonly'
+				KeyboardEvent: 'readonly',
+				File: 'readonly',
+				DragEvent: 'readonly'
 			}
 		},
 		rules: {

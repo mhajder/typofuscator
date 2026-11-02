@@ -41,6 +41,8 @@
 	let shareSuccess = $state(false);
 	let showDiff = $state(false);
 	let canShare = $state(false);
+	let isDragging = $state(false);
+	let uploadedFileName = $state<string | null>(null);
 	let mounted = $state(false);
 
 	function loadStateFromUrl() {
@@ -176,6 +178,48 @@
 	function clearAll() {
 		manualOutput = null;
 		inputText = '';
+		uploadedFileName = null;
+	}
+
+	async function loadFileContent(file: File) {
+		try {
+			const content = await file.text();
+			inputText = content;
+			manualOutput = null;
+			uploadedFileName = file.name;
+		} catch (err) {
+			console.error('Failed to read file:', err);
+		}
+	}
+
+	function handleFileDrop(event: DragEvent) {
+		event.preventDefault();
+		isDragging = false;
+		const file = event.dataTransfer?.files?.[0];
+		if (file) {
+			loadFileContent(file);
+		}
+	}
+
+	function handleFileInput(event: Event) {
+		const target = event.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (file) {
+			loadFileContent(file);
+			target.value = '';
+		}
+	}
+
+	function downloadObfuscatedFile() {
+		if (!outputText) return;
+		const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		const baseName = uploadedFileName ? uploadedFileName.replace(/\.[^/.]+$/, '') : 'typofuscated';
+		a.download = `${baseName}-obfuscated.txt`;
+		a.click();
+		URL.revokeObjectURL(url);
 	}
 
 	function onInputChange() {
@@ -380,7 +424,19 @@
 						<label for="input" class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
 							Original Text
 						</label>
-						<div class="flex gap-2">
+						<div class="flex gap-2 items-center">
+							<label
+								class="cursor-pointer text-xs bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/60 dark:hover:bg-indigo-800 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md transition-colors inline-flex items-center gap-1 font-medium"
+								title="Upload .txt or .md file"
+							>
+								📁 Upload
+								<input
+									type="file"
+									accept=".txt,.md,.text"
+									class="hidden"
+									onchange={handleFileInput}
+								/>
+							</label>
 							<button
 								onclick={loadExample}
 								class="text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200 px-3 py-1 rounded-md transition-colors"
@@ -399,11 +455,30 @@
 						id="input"
 						bind:value={inputText}
 						oninput={onInputChange}
-						placeholder="Enter your text here..."
-						class="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent resize-none text-sm leading-relaxed bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-					></textarea>
-					<div class="text-xs text-gray-500 dark:text-gray-400">
-						Characters: {inputText.length}
+						ondragover={(e) => {
+							e.preventDefault();
+							isDragging = true;
+						}}
+						ondragleave={(e) => {
+							e.preventDefault();
+							isDragging = false;
+						}}
+						ondrop={handleFileDrop}
+						placeholder="Enter your text here or drag & drop a .txt/.md file..."
+						class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent resize-none text-sm leading-relaxed bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+						class:border-dashed={isDragging}
+						class:border-indigo-500={isDragging}
+						class:bg-indigo-50={isDragging}
+						class:dark:bg-indigo-950={isDragging}
+						class:border-gray-300={!isDragging}
+						class:dark:border-gray-600={!isDragging}></textarea>
+					<div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+						<span>Characters: {inputText.length}</span>
+						{#if uploadedFileName}
+							<span class="text-indigo-600 dark:text-indigo-400 font-medium truncate max-w-[200px]"
+								>📄 {uploadedFileName}</span
+							>
+						{/if}
 					</div>
 				</div>
 
@@ -433,6 +508,14 @@
 								title="Toggle visual diff highlighting changes"
 							>
 								{showDiff ? '📝 Raw Text' : '👁️ Highlight Changes'}
+							</button>
+							<button
+								onclick={downloadObfuscatedFile}
+								disabled={!outputText}
+								class="text-xs hover:bg-blue-200 dark:hover:bg-blue-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 px-2.5 py-1 rounded-md transition-colors inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-medium"
+								title="Download obfuscated text as a file"
+							>
+								💾 Download
 							</button>
 							<button
 								onclick={copyToClipboard}

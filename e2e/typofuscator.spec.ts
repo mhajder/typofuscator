@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { test, expect } from '@playwright/test';
 
 test.describe('Typofuscator E2E Tests', () => {
@@ -219,5 +220,33 @@ test.describe('Typofuscator E2E Tests', () => {
 		// Ctrl+Shift+C or Meta+Shift+C to copy
 		await page.keyboard.press('Control+Shift+C');
 		await expect(page.getByRole('button', { name: /Copied!/i })).toBeVisible();
+	});
+
+	test('should support file upload and trigger obfuscated text download', async ({ page }) => {
+		const uploadInput = page.locator('input[type="file"][accept*=".txt"]');
+		const input = page.locator('#input');
+		const output = page.locator('#output');
+		const downloadBtn = page.getByRole('button', { name: /Download/i });
+
+		// Initially download is disabled
+		await expect(downloadBtn).toBeDisabled();
+
+		// Set file input with a buffer
+		await uploadInput.setInputFiles({
+			name: 'document.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('Testing document file upload obfuscation')
+		});
+
+		await expect(input).toHaveValue('Testing document file upload obfuscation');
+		await expect(output).not.toHaveValue('');
+		await expect(page.locator('text=document.txt')).toBeVisible();
+		await expect(downloadBtn).toBeEnabled();
+
+		// Trigger download event
+		const downloadPromise = page.waitForEvent('download');
+		await downloadBtn.click();
+		const download = await downloadPromise;
+		expect(download.suggestedFilename()).toBe('document-obfuscated.txt');
 	});
 });
