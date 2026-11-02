@@ -4,7 +4,8 @@
 		ScrambleIntensity,
 		ScrambleAlgorithm,
 		SimilarCharMode,
-		SimilarCharStyle
+		SimilarCharStyle,
+		ZeroWidthMode
 	} from './typofuscator';
 	import { defaultSettings } from './typofuscator';
 
@@ -79,6 +80,16 @@
 				description: 'Use homoglyphs from Greek alphabet'
 			}
 		];
+
+	const zeroWidthModeOptions: { value: ZeroWidthMode; label: string; description: string }[] = [
+		{ value: 'off', label: 'Off', description: 'Disable zero-width token injection' },
+		{ value: 'subtle', label: 'Subtle', description: 'Inject inside ~25% of character boundaries' },
+		{
+			value: 'aggressive',
+			label: 'Aggressive',
+			description: 'Inject inside ~70% of character boundaries'
+		}
+	];
 </script>
 
 <div class="settings-panel" class:open={isOpen}>
@@ -300,6 +311,29 @@
 						</div>
 					{/if}
 				{/if}
+			</div>
+
+			<!-- Invisible Obfuscation (Zero-Width Tokens) -->
+			<div class="setting-group">
+				<h4 class="setting-group-title">Invisible Token Breaking (Zero-Width Characters)</h4>
+				<div class="setting-row">
+					<div class="radio-group">
+						{#each zeroWidthModeOptions as option (option.value)}
+							<label class="radio-label">
+								<input type="radio" bind:group={settings.zeroWidthMode} value={option.value} />
+								<span class="radio-button"></span>
+								<div class="radio-content">
+									<span class="radio-title">{option.label}</span>
+									<span class="radio-description">{option.description}</span>
+								</div>
+							</label>
+						{/each}
+					</div>
+				</div>
+				<span class="setting-description"
+					>Injects non-printable zero-width characters (ZWSP, ZWNJ, ZWJ) to fragment AI/LLM
+					tokenizers while remaining visually identical to humans.</span
+				>
 			</div>
 
 			<!-- Exclude Words -->

@@ -8,7 +8,8 @@
 		ScrambleIntensity,
 		ScrambleAlgorithm,
 		SimilarCharMode,
-		SimilarCharStyle
+		SimilarCharStyle,
+		ZeroWidthMode
 	} from '#lib/typofuscator';
 	import SettingsPanel from '#lib/SettingsPanel.svelte';
 	import ThemeToggle from '#lib/ThemeToggle.svelte';
@@ -67,6 +68,11 @@
 		const styleParam = params.get('style') as SimilarCharStyle | null;
 		if (styleParam && ['mixed', 'cyrillic', 'latin', 'greek'].includes(styleParam)) {
 			settings.similarCharStyle = styleParam;
+		}
+
+		const zeroWidthParam = params.get('zeroWidth') as ZeroWidthMode | null;
+		if (zeroWidthParam && ['off', 'subtle', 'aggressive'].includes(zeroWidthParam)) {
+			settings.zeroWidthMode = zeroWidthParam;
 		}
 
 		const minWordParam = params.get('minWord');
@@ -128,7 +134,8 @@
 							inputWords: 0,
 							scrambledWords: 0,
 							scrambledLetters: 0,
-							homoglyphsSubstituted: 0
+							homoglyphsSubstituted: 0,
+							zeroWidthInjected: 0
 						}
 					}
 	);
@@ -195,6 +202,9 @@
 		}
 		if (settings.similarCharStyle !== defaultSettings.similarCharStyle) {
 			url.searchParams.set('style', settings.similarCharStyle);
+		}
+		if (settings.zeroWidthMode !== defaultSettings.zeroWidthMode) {
+			url.searchParams.set('zeroWidth', settings.zeroWidthMode);
 		}
 		if (settings.minWordLength !== defaultSettings.minWordLength) {
 			url.searchParams.set('minWord', String(settings.minWordLength));
@@ -399,7 +409,7 @@
 			<!-- Real-time Obfuscation Metrics Banner -->
 			<div
 				id="metrics-panel"
-				class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center"
+				class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 text-center"
 			>
 				<div
 					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
@@ -449,13 +459,23 @@
 				<div
 					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
 				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Zero-Width</span>
+					<span class="text-base font-bold text-purple-600 dark:text-purple-400"
+						>{metrics.zeroWidthInjected}</span
+					>
+				</div>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 col-span-2 sm:col-span-3 lg:col-span-1"
+				>
 					<span class="block text-xs text-gray-500 dark:text-gray-400">Obfuscation Rate</span>
 					<span class="text-base font-bold text-emerald-600 dark:text-emerald-400">
 						{metrics.inputChars > 0
 							? Math.min(
 									100,
 									Math.round(
-										((metrics.scrambledLetters + metrics.homoglyphsSubstituted) /
+										((metrics.scrambledLetters +
+											metrics.homoglyphsSubstituted +
+											metrics.zeroWidthInjected) /
 											metrics.inputChars) *
 											100
 									)

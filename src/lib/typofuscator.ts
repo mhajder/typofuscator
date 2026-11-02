@@ -2,6 +2,9 @@ export type ScrambleIntensity = 'light' | 'medium' | 'heavy';
 export type ScrambleAlgorithm = 'swap' | 'shuffle' | 'reverse';
 export type SimilarCharMode = 'off' | 'some' | 'all';
 export type SimilarCharStyle = 'mixed' | 'cyrillic' | 'latin' | 'greek';
+export type ZeroWidthMode = 'off' | 'subtle' | 'aggressive';
+
+export const ZERO_WIDTH_CHARS = ['\u200B', '\u200C', '\u200D', '\uFEFF'];
 
 export interface ObfuscationMetrics {
 	inputChars: number;
@@ -10,6 +13,7 @@ export interface ObfuscationMetrics {
 	scrambledWords: number;
 	scrambledLetters: number;
 	homoglyphsSubstituted: number;
+	zeroWidthInjected: number;
 }
 
 export interface TypofuscatorSettings {
@@ -41,6 +45,7 @@ export interface TypofuscatorSettings {
 	similarCharMode: SimilarCharMode;
 	similarCharStyle: SimilarCharStyle;
 	similarCharRate: number;
+	zeroWidthMode: ZeroWidthMode;
 }
 
 export const defaultSettings: TypofuscatorSettings = {
@@ -59,7 +64,8 @@ export const defaultSettings: TypofuscatorSettings = {
 	customAlgorithm: 'swap',
 	similarCharMode: 'off',
 	similarCharStyle: 'mixed',
-	similarCharRate: 35
+	similarCharRate: 35,
+	zeroWidthMode: 'off'
 };
 
 const cyrillicLookalikes: Record<string, string[]> = {
@@ -175,6 +181,7 @@ export function encryptTextWithMetrics(
 	let scrambledWords = 0;
 	let scrambledLetters = 0;
 	let homoglyphsSubstituted = 0;
+	let zeroWidthInjected = 0;
 
 	for (const token of tokens) {
 		// Check if token is a word (letters and optionally numbers)
@@ -222,6 +229,15 @@ export function encryptTextWithMetrics(
 				rng,
 				() => homoglyphsSubstituted++
 			);
+
+			transformedWord = injectZeroWidthCharacters(
+				transformedWord,
+				config.zeroWidthMode,
+				rng,
+				(count) => {
+					zeroWidthInjected += count;
+				}
+			);
 			scrambledTokens.push(transformedWord);
 		} else {
 			// Separators, punctuation, and whitespace are added without changes
@@ -239,7 +255,8 @@ export function encryptTextWithMetrics(
 			inputWords,
 			scrambledWords,
 			scrambledLetters,
-			homoglyphsSubstituted
+			homoglyphsSubstituted,
+			zeroWidthInjected
 		}
 	};
 }
@@ -466,6 +483,38 @@ function getSimilarCharacterVariants(char: string, style: SimilarCharStyle): str
 	return [];
 }
 
+function injectZeroWidthCharacters(
+	word: string,
+	mode: ZeroWidthMode,
+	rng: SeededRandom,
+	onInject?: (_count: number) => void
+): string {
+	if (mode === 'off' || word.length < 2) {
+		return word;
+	}
+
+	const probability = mode === 'aggressive' ? 0.7 : 0.25;
+	let injectedCount = 0;
+	const chars = Array.from(word);
+	const result: string[] = [];
+
+	for (let i = 0; i < chars.length; i++) {
+		result.push(chars[i]);
+		// Inject zero-width character between letters (not after the final letter)
+		if (i < chars.length - 1 && rng.next() < probability) {
+			const zwChar = ZERO_WIDTH_CHARS[Math.floor(rng.next() * ZERO_WIDTH_CHARS.length)];
+			result.push(zwChar);
+			injectedCount++;
+		}
+	}
+
+	if (injectedCount > 0 && onInject) {
+		onInject(injectedCount);
+	}
+
+	return result.join('');
+}
+
 function normalizeSettings(settings: TypofuscatorSettings): TypofuscatorSettings {
 	const allowedStyles: SimilarCharStyle[] = ['mixed', 'cyrillic', 'latin', 'greek'];
 	const style = allowedStyles.includes(settings.similarCharStyle)
@@ -477,11 +526,17 @@ function normalizeSettings(settings: TypofuscatorSettings): TypofuscatorSettings
 		? settings.similarCharMode
 		: defaultSettings.similarCharMode;
 
+	const allowedZeroWidthModes: ZeroWidthMode[] = ['off', 'subtle', 'aggressive'];
+	const zeroWidthMode = allowedZeroWidthModes.includes(settings.zeroWidthMode)
+		? settings.zeroWidthMode
+		: defaultSettings.zeroWidthMode;
+
 	return {
 		...settings,
 		similarCharStyle: style,
 		similarCharMode: mode,
-		similarCharRate: Math.max(0, Math.min(100, settings.similarCharRate))
+		similarCharRate: Math.max(0, Math.min(100, settings.similarCharRate)),
+		zeroWidthMode
 	};
 }
 

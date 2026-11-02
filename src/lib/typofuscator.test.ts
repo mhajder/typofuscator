@@ -441,6 +441,7 @@ describe('typofuscator', () => {
 			expect(defaultSettings.similarCharMode).toBe('off');
 			expect(defaultSettings.similarCharStyle).toBe('mixed');
 			expect(defaultSettings.similarCharRate).toBe(35);
+			expect(defaultSettings.zeroWidthMode).toBe('off');
 		});
 	});
 
@@ -702,7 +703,8 @@ describe('typofuscator', () => {
 				inputWords: 0,
 				scrambledWords: 0,
 				scrambledLetters: 0,
-				homoglyphsSubstituted: 0
+				homoglyphsSubstituted: 0,
+				zeroWidthInjected: 0
 			});
 		});
 
@@ -746,6 +748,55 @@ describe('typofuscator', () => {
 			expect(text).toBe('secret tnitseg');
 			expect(metrics.inputWords).toBe(2);
 			expect(metrics.scrambledWords).toBe(1);
+		});
+	});
+
+	describe('Zero-Width Character Token Injection', () => {
+		it('should not inject zero-width characters when mode is off', () => {
+			const { text, metrics } = encryptTextWithMetrics('hello world testing', {
+				zeroWidthMode: 'off',
+				seed: 42
+			});
+
+			expect(text).not.toMatch(/(?:\u200B|\u200C|\u200D|\uFEFF)/);
+			expect(metrics.zeroWidthInjected).toBe(0);
+		});
+
+		it('should inject zero-width characters when mode is subtle or aggressive', () => {
+			const { text: textSubtle, metrics: metricsSubtle } = encryptTextWithMetrics(
+				'internationalization',
+				{
+					minWordLength: 99,
+					zeroWidthMode: 'subtle',
+					seed: 42
+				}
+			);
+
+			expect(metricsSubtle.zeroWidthInjected).toBeGreaterThan(0);
+			expect(textSubtle).toMatch(/(?:\u200B|\u200C|\u200D|\uFEFF)/);
+
+			const { text: textAggressive, metrics: metricsAggressive } = encryptTextWithMetrics(
+				'internationalization',
+				{
+					minWordLength: 99,
+					zeroWidthMode: 'aggressive',
+					seed: 42
+				}
+			);
+
+			expect(metricsAggressive.zeroWidthInjected).toBeGreaterThan(metricsSubtle.zeroWidthInjected);
+			// Removing zero-width characters yields the clean word
+			expect(textAggressive.replace(/(?:\u200B|\u200C|\u200D|\uFEFF)/g, '')).toBe(
+				'internationalization'
+			);
+		});
+
+		it('should normalize invalid zero-width mode to default', () => {
+			const { metrics } = encryptTextWithMetrics('hello world', {
+				// @ts-expect-error testing invalid mode
+				zeroWidthMode: 'invalid'
+			});
+			expect(metrics.zeroWidthInjected).toBe(0);
 		});
 	});
 });
