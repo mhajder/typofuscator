@@ -26,15 +26,80 @@
 		resetToDefaults
 	}: Props = $props();
 
-	let excludeWordsText = $state(settings.excludeWords.join(', '));
+	let newWordInput = $state('');
 
-	// Handle exclude words text changes
-	$effect(() => {
-		settings.excludeWords = excludeWordsText
-			.split(',')
-			.map((word) => word.trim())
-			.filter((word) => word.length > 0);
-	});
+	function addExcludedWord(word: string) {
+		const cleaned = word.trim().toLowerCase();
+		if (cleaned && !settings.excludeWords.map((w) => w.toLowerCase()).includes(cleaned)) {
+			settings.excludeWords = [...settings.excludeWords, cleaned];
+		}
+	}
+
+	function removeExcludedWord(indexToRemove: number) {
+		settings.excludeWords = settings.excludeWords.filter((_, i) => i !== indexToRemove);
+	}
+
+	function clearExcludedWords() {
+		settings.excludeWords = [];
+	}
+
+	function commitInputWords() {
+		if (newWordInput.trim()) {
+			newWordInput
+				.split(',')
+				.map((w) => w.trim())
+				.filter(Boolean)
+				.forEach(addExcludedWord);
+			newWordInput = '';
+		}
+	}
+
+	function handleExcludeKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ',') {
+			event.preventDefault();
+			commitInputWords();
+		}
+	}
+
+	const commonStopwords = [
+		'the',
+		'is',
+		'at',
+		'which',
+		'on',
+		'and',
+		'a',
+		'an',
+		'in',
+		'for',
+		'to',
+		'of',
+		'with',
+		'as',
+		'by',
+		'that'
+	];
+
+	const techKeywords = [
+		'function',
+		'const',
+		'return',
+		'import',
+		'export',
+		'class',
+		'let',
+		'var',
+		'async',
+		'await'
+	];
+
+	function applyPreset(presetWords: string[]) {
+		const combined = new Set([
+			...settings.excludeWords.map((w) => w.toLowerCase()),
+			...presetWords
+		]);
+		settings.excludeWords = Array.from(combined);
+	}
 
 	function generateRandomSeed() {
 		settings.seed = Math.floor(Math.random() * 1000000);
@@ -388,17 +453,86 @@
 
 			<!-- Exclude Words -->
 			<div class="setting-group">
-				<h4 class="setting-group-title">Exclude Words</h4>
-				<div class="setting-row">
-					<label for="excludeWords" class="input-label">Words to never scramble:</label>
-					<textarea
-						id="excludeWords"
-						bind:value={excludeWordsText}
-						placeholder="word1, word2, word3..."
-						class="text-input"
-						rows="2"></textarea>
-					<span class="setting-description">Comma-separated list of words to leave unchanged</span>
+				<div class="flex items-center justify-between">
+					<h4 class="setting-group-title mb-0">Exclude Words ({settings.excludeWords.length})</h4>
+					{#if settings.excludeWords.length > 0}
+						<button
+							type="button"
+							onclick={clearExcludedWords}
+							class="text-xs text-red-600 dark:text-red-400 hover:underline"
+						>
+							Clear all
+						</button>
+					{/if}
 				</div>
+
+				{#if settings.excludeWords.length > 0}
+					<div class="setting-row">
+						<div
+							class="flex flex-wrap gap-1.5 p-2 bg-gray-50 dark:bg-gray-800/80 rounded-lg border border-gray-200 dark:border-gray-700 w-full max-h-32 overflow-y-auto"
+						>
+							{#each settings.excludeWords as word, idx (word + idx)}
+								<span
+									class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+								>
+									{word}
+									<button
+										type="button"
+										onclick={() => removeExcludedWord(idx)}
+										aria-label={`Remove ${word}`}
+										class="hover:text-indigo-900 dark:hover:text-white rounded-full w-3.5 h-3.5 inline-flex items-center justify-center text-[12px] leading-none transition-colors"
+									>
+										×
+									</button>
+								</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<div class="setting-row">
+					<input
+						id="excludeWords"
+						type="text"
+						bind:value={newWordInput}
+						onkeydown={handleExcludeKeydown}
+						onblur={commitInputWords}
+						oninput={(e) => {
+							if (e.currentTarget.value.includes(',')) commitInputWords();
+						}}
+						placeholder="Type a word and press Enter..."
+						class="text-input flex-1"
+					/>
+					<button
+						type="button"
+						onclick={commitInputWords}
+						disabled={!newWordInput.trim()}
+						class="btn-small"
+					>
+						Add
+					</button>
+				</div>
+
+				<div class="flex items-center gap-2 flex-wrap text-xs pt-1">
+					<span class="text-gray-500 dark:text-gray-400">Presets:</span>
+					<button
+						type="button"
+						onclick={() => applyPreset(commonStopwords)}
+						class="px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors"
+					>
+						+ Stopwords ({commonStopwords.length})
+					</button>
+					<button
+						type="button"
+						onclick={() => applyPreset(techKeywords)}
+						class="px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors"
+					>
+						+ Code Keywords ({techKeywords.length})
+					</button>
+				</div>
+				<span class="setting-description"
+					>Words to leave completely unchanged. Press Enter or comma to add.</span
+				>
 			</div>
 
 			<!-- Seed Control -->
@@ -439,7 +573,7 @@
 						? resetToDefaults
 						: () => {
 								settings = { ...defaultSettings };
-								excludeWordsText = '';
+								newWordInput = '';
 							}}
 					class="reset-btn"
 				>
