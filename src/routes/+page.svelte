@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { SvelteURL } from 'svelte/reactivity';
-	import { encryptTextWithMetrics, defaultSettings } from '#lib/typofuscator';
+	import { encryptTextWithMetrics, defaultSettings, computeDiffSegments } from '#lib/typofuscator';
 	import type {
 		TypofuscatorSettings,
 		ObfuscationMetrics,
@@ -10,7 +10,8 @@
 		SimilarCharMode,
 		SimilarCharStyle,
 		ZeroWidthMode,
-		QwertyTypoMode
+		QwertyTypoMode,
+		DiffSegment
 	} from '#lib/typofuscator';
 	import SettingsPanel from '#lib/SettingsPanel.svelte';
 	import ThemeToggle from '#lib/ThemeToggle.svelte';
@@ -38,6 +39,7 @@
 	let settingsOpen = $state(false);
 	let copySuccess = $state(false);
 	let shareSuccess = $state(false);
+	let showDiff = $state(false);
 	let mounted = $state(false);
 
 	function loadStateFromUrl() {
@@ -157,6 +159,9 @@
 
 	let outputText = $derived(activeResult.text);
 	let metrics = $derived(activeResult.metrics);
+	let diffSegments: DiffSegment[] = $derived(
+		showDiff && inputText && outputText ? computeDiffSegments(inputText, outputText) : []
+	);
 
 	const exampleText =
 		'Algorithm that scrambles letters within words while keeping them readable to humans. People can read it, maybe with difficulty but they can read it. AI gets confused, translator also gets confused, so we can filter out peoples that are using translators.';
@@ -390,6 +395,23 @@
 						</label>
 						<div class="flex gap-2">
 							<button
+								type="button"
+								onclick={() => (showDiff = !showDiff)}
+								disabled={!outputText}
+								class="text-xs hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 px-2.5 py-1 rounded-md transition-colors inline-flex items-center gap-1 font-medium"
+								class:bg-indigo-100={showDiff}
+								class:dark:bg-indigo-900={showDiff}
+								class:text-indigo-700={showDiff}
+								class:dark:text-indigo-200={showDiff}
+								class:bg-gray-100={!showDiff}
+								class:dark:bg-gray-800={!showDiff}
+								class:text-gray-700={!showDiff}
+								class:dark:text-gray-300={!showDiff}
+								title="Toggle visual diff highlighting changes"
+							>
+								{showDiff ? '📝 Raw Text' : '👁️ Highlight Changes'}
+							</button>
+							<button
 								onclick={copyToClipboard}
 								disabled={!outputText}
 								class="text-xs hover:bg-green-200 dark:hover:bg-green-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 px-3 py-1 rounded-md transition-colors inline-flex items-center gap-1"
@@ -408,13 +430,65 @@
 							</button>
 						</div>
 					</div>
-					<textarea
-						id="output"
-						value={outputText}
-						readonly
-						placeholder="Obfuscated text will appear here..."
-						class="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 resize-none text-sm leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-					></textarea>
+					{#if showDiff}
+						<div
+							id="diff-output"
+							class="w-full h-64 p-4 border border-indigo-300 dark:border-indigo-700 rounded-lg bg-gray-50 dark:bg-gray-900 overflow-y-auto text-sm leading-relaxed text-gray-900 dark:text-gray-100 whitespace-pre-wrap font-mono"
+						>
+							{#each diffSegments as seg, i (i)}
+								{#if seg.type === 'zero-width'}
+									<span
+										class="inline-block bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-mono text-[10px] px-1 py-0.5 rounded mx-0.5 font-bold"
+										title="Zero-Width Character">{seg.text}</span
+									>
+								{:else if seg.type === 'homoglyph'}
+									<mark
+										class="bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 rounded px-0.5 font-medium"
+										title="Homoglyph">{seg.text}</mark
+									>
+								{:else if seg.type === 'typo'}
+									<mark
+										class="bg-rose-200 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 rounded px-0.5 font-medium"
+										title="Keyboard Typo">{seg.text}</mark
+									>
+								{:else if seg.type === 'scrambled'}
+									<mark
+										class="bg-indigo-200 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 rounded px-0.5 font-medium"
+										title="Scrambled Letter">{seg.text}</mark
+									>
+								{:else}
+									<span>{seg.text}</span>
+								{/if}
+							{/each}
+						</div>
+					{:else}
+						<textarea
+							id="output"
+							value={outputText}
+							readonly
+							placeholder="Obfuscated text will appear here..."
+							class="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 resize-none text-sm leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+						></textarea>
+					{/if}
+					{#if showDiff}
+						<div
+							class="flex flex-wrap gap-3 text-[11px] text-gray-500 dark:text-gray-400 items-center pt-1"
+						>
+							<span class="font-semibold">Legend:</span>
+							<span class="inline-flex items-center gap-1"
+								><span class="w-2.5 h-2.5 bg-indigo-200 dark:bg-indigo-900/60 rounded"></span> Scrambled</span
+							>
+							<span class="inline-flex items-center gap-1"
+								><span class="w-2.5 h-2.5 bg-amber-200 dark:bg-amber-900/60 rounded"></span> Homoglyph</span
+							>
+							<span class="inline-flex items-center gap-1"
+								><span class="w-2.5 h-2.5 bg-rose-200 dark:bg-rose-900/60 rounded"></span> Typo</span
+							>
+							<span class="inline-flex items-center gap-1"
+								><span class="w-2.5 h-2.5 bg-purple-200 dark:bg-purple-900/60 rounded"></span> Zero-Width</span
+							>
+						</div>
+					{/if}
 					<div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
 						<span>Characters: {outputText.length}</span>
 						{#if settings.seed !== undefined}

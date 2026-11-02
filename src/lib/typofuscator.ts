@@ -5,6 +5,11 @@ export type SimilarCharStyle = 'mixed' | 'cyrillic' | 'latin' | 'greek';
 export type ZeroWidthMode = 'off' | 'subtle' | 'aggressive';
 export type QwertyTypoMode = 'off' | 'some' | 'all';
 
+export interface DiffSegment {
+	text: string;
+	type: 'unchanged' | 'scrambled' | 'homoglyph' | 'typo' | 'zero-width';
+}
+
 export const ZERO_WIDTH_CHARS = ['\u200B', '\u200C', '\u200D', '\uFEFF'];
 
 export interface ObfuscationMetrics {
@@ -635,4 +640,98 @@ function normalizeSettings(settings: TypofuscatorSettings): TypofuscatorSettings
 // Legacy function for backward compatibility
 export function encryptTextLegacy(text: string): string {
 	return encryptText(text, defaultSettings);
+}
+
+/**
+ * Computes visual diff segments between original and obfuscated text,
+ * categorizing characters as unchanged, scrambled, homoglyph, typo, or zero-width.
+ */
+export function computeDiffSegments(original: string, obfuscated: string): DiffSegment[] {
+	if (!obfuscated) return [];
+	if (!original) {
+		return [{ text: obfuscated, type: 'unchanged' }];
+	}
+
+	const origTokens = original.match(/(\w+|\W+)/g) || [];
+	const obfTokens =
+		obfuscated.match(/(?:[a-zA-Z0-9_]|\u200B|\u200C|\u200D|\uFEFF)+|[^\s\w]+|\s+/gu) || [];
+
+	const rawSegments: DiffSegment[] = [];
+
+	if (origTokens.length === obfTokens.length) {
+		for (let i = 0; i < origTokens.length; i++) {
+			const origToken = origTokens[i];
+			const obfToken = obfTokens[i];
+
+			if (origToken === obfToken) {
+				rawSegments.push({ text: obfToken, type: 'unchanged' });
+				continue;
+			}
+
+			const obfChars = Array.from(obfToken);
+			let origCharIdx = 0;
+
+			for (const char of obfChars) {
+				if (ZERO_WIDTH_CHARS.includes(char)) {
+					rawSegments.push({ text: '[ZW]', type: 'zero-width' });
+					continue;
+				}
+
+				const origChar = origToken[origCharIdx] ?? '';
+				origCharIdx++;
+
+				if (char === origChar) {
+					rawSegments.push({ text: char, type: 'unchanged' });
+				} else if (/[^\p{ASCII}]/u.test(char)) {
+					rawSegments.push({ text: char, type: 'homoglyph' });
+				} else if (
+					origChar &&
+					qwertyAdjacency[origChar.toLowerCase()]?.includes(char.toLowerCase())
+				) {
+					rawSegments.push({ text: char, type: 'typo' });
+				} else {
+					rawSegments.push({ text: char, type: 'scrambled' });
+				}
+			}
+		}
+	} else {
+		// Fallback for token length mismatches
+		const obfChars = Array.from(obfuscated);
+		const origChars = Array.from(original);
+
+		for (let i = 0; i < obfChars.length; i++) {
+			const char = obfChars[i];
+			if (ZERO_WIDTH_CHARS.includes(char)) {
+				rawSegments.push({ text: '[ZW]', type: 'zero-width' });
+				continue;
+			}
+
+			const origChar = origChars[i] ?? '';
+			if (char === origChar) {
+				rawSegments.push({ text: char, type: 'unchanged' });
+			} else if (/[^\p{ASCII}]/u.test(char)) {
+				rawSegments.push({ text: char, type: 'homoglyph' });
+			} else if (
+				origChar &&
+				qwertyAdjacency[origChar.toLowerCase()]?.includes(char.toLowerCase())
+			) {
+				rawSegments.push({ text: char, type: 'typo' });
+			} else {
+				rawSegments.push({ text: char, type: 'scrambled' });
+			}
+		}
+	}
+
+	// Collapse consecutive identical-type segments (except zero-width) for cleaner DOM
+	const merged: DiffSegment[] = [];
+	for (const seg of rawSegments) {
+		const prev = merged[merged.length - 1];
+		if (prev && prev.type === seg.type && seg.type !== 'zero-width') {
+			prev.text += seg.text;
+		} else {
+			merged.push({ ...seg });
+		}
+	}
+
+	return merged;
 }

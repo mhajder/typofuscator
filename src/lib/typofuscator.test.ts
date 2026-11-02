@@ -3,7 +3,8 @@ import {
 	encryptText,
 	encryptTextWithMetrics,
 	encryptTextLegacy,
-	defaultSettings
+	defaultSettings,
+	computeDiffSegments
 } from './typofuscator';
 import type { TypofuscatorSettings } from './typofuscator';
 
@@ -861,6 +862,58 @@ describe('typofuscator', () => {
 				qwertyTypoRate: 200
 			});
 			expect(metrics.qwertyTyposSubstituted).toBe(0);
+		});
+	});
+
+	describe('computeDiffSegments', () => {
+		it('should return empty array for empty obfuscated string', () => {
+			expect(computeDiffSegments('original', '')).toEqual([]);
+		});
+
+		it('should return unchanged text when original is empty', () => {
+			expect(computeDiffSegments('', 'obfuscated')).toEqual([
+				{ text: 'obfuscated', type: 'unchanged' }
+			]);
+		});
+
+		it('should identify unchanged text when both strings match', () => {
+			const segments = computeDiffSegments('hello world', 'hello world');
+			expect(segments).toEqual([{ text: 'hello world', type: 'unchanged' }]);
+		});
+
+		it('should identify scrambled characters and zero-width insertions', () => {
+			const original = 'world';
+			const obfuscated = 'w\u200Borld';
+			const segments = computeDiffSegments(original, obfuscated);
+
+			expect(segments).toContainEqual({ text: '[ZW]', type: 'zero-width' });
+		});
+
+		it('should categorize homoglyph substitutions as homoglyph type', () => {
+			// 'camera' with Cyrillic 'с' and 'а'
+			const original = 'camera';
+			const obfuscated = 'саmera';
+			const segments = computeDiffSegments(original, obfuscated);
+
+			expect(segments.some((s) => s.type === 'homoglyph')).toBe(true);
+		});
+
+		it('should categorize QWERTY typo slips as typo type', () => {
+			// 'cat' where 'a' was typoed to adjacent key 's'
+			const original = 'cat';
+			const obfuscated = 'cst';
+			const segments = computeDiffSegments(original, obfuscated);
+
+			expect(segments).toEqual([
+				{ text: 'c', type: 'unchanged' },
+				{ text: 's', type: 'typo' },
+				{ text: 't', type: 'unchanged' }
+			]);
+		});
+
+		it('should fallback gracefully when token counts do not match', () => {
+			const segments = computeDiffSegments('hello', 'h e l l o');
+			expect(segments.length).toBeGreaterThan(0);
 		});
 	});
 });
