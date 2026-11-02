@@ -8,21 +8,31 @@
 	} from './typofuscator';
 	import { defaultSettings } from './typofuscator';
 
-	export let settings: TypofuscatorSettings = { ...defaultSettings };
-	export let isOpen = false;
-	export let onExportSettings: () => void;
-	export let onImportSettings: (_event: Event) => void;
-	export let resetToDefaults: (() => void) | undefined;
+	interface Props {
+		settings?: TypofuscatorSettings;
+		isOpen?: boolean;
+		onExportSettings?: () => void;
+		onImportSettings?: (_event: Event) => void;
+		resetToDefaults?: (() => void) | undefined;
+	}
 
-	let excludeWordsText = settings.excludeWords.join(', ');
+	let {
+		settings = $bindable({ ...defaultSettings }),
+		isOpen = $bindable(false),
+		onExportSettings,
+		onImportSettings,
+		resetToDefaults
+	}: Props = $props();
+
+	let excludeWordsText = $state(settings.excludeWords.join(', '));
 
 	// Handle exclude words text changes
-	$: {
+	$effect(() => {
 		settings.excludeWords = excludeWordsText
 			.split(',')
 			.map((word) => word.trim())
 			.filter((word) => word.length > 0);
-	}
+	});
 
 	function generateRandomSeed() {
 		settings.seed = Math.floor(Math.random() * 1000000);
@@ -74,8 +84,8 @@
 <div class="settings-panel" class:open={isOpen}>
 	<div
 		class="settings-header"
-		on:click={() => (isOpen = !isOpen)}
-		on:keydown={(e) => (e.key === 'Enter' || e.key === ' ' ? (isOpen = !isOpen) : null)}
+		onclick={() => (isOpen = !isOpen)}
+		onkeydown={(e) => (e.key === 'Enter' || e.key === ' ' ? (isOpen = !isOpen) : null)}
 		role="button"
 		tabindex="0"
 	>
@@ -319,8 +329,8 @@
 						placeholder="Random"
 						class="number-input flex-1"
 					/>
-					<button on:click={generateRandomSeed} class="btn-small">Generate</button>
-					<button on:click={clearSeed} class="btn-small">Clear</button>
+					<button onclick={generateRandomSeed} class="btn-small">Generate</button>
+					<button onclick={clearSeed} class="btn-small">Clear</button>
 				</div>
 				<span class="setting-description">Use same seed for identical results</span>
 			</div>
@@ -329,10 +339,10 @@
 			<div class="setting-group">
 				<h4 class="setting-group-title">Import/Export Settings</h4>
 				<div class="setting-row">
-					<button on:click={onExportSettings} class="export-btn"> 📤 Export Settings </button>
+					<button onclick={onExportSettings} class="export-btn"> 📤 Export Settings </button>
 					<label class="import-btn">
 						📥 Import Settings
-						<input type="file" accept=".json" on:change={onImportSettings} class="hidden" />
+						<input type="file" accept=".json" onchange={onImportSettings} class="hidden" />
 					</label>
 				</div>
 				<span class="setting-description">Save or load your custom settings configuration</span>
@@ -341,7 +351,7 @@
 			<!-- Reset Button -->
 			<div class="setting-group">
 				<button
-					on:click={resetToDefaults
+					onclick={resetToDefaults
 						? resetToDefaults
 						: () => {
 								settings = { ...defaultSettings };

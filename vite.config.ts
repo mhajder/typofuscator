@@ -21,9 +21,5 @@ export default defineConfig({
 				base: (process.env.BASE_PATH ?? '') as '' | `/${string}`
 			}
 		})
-	],
-	define: {
-		__DATE__: `'${new Date().toISOString()}'`,
-		__RELOAD_SW__: 'true'
-	}
+	]
 });

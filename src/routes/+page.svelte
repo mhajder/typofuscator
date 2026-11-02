@@ -4,16 +4,11 @@
 	import SettingsPanel from '#lib/SettingsPanel.svelte';
 	import ThemeToggle from '#lib/ThemeToggle.svelte';
 
-	let inputText = '';
-	let outputText = '';
-	let settings: TypofuscatorSettings = { ...defaultSettings };
-	let settingsOpen = false;
-	let copySuccess = false;
-
 	const SETTINGS_KEY = 'typofuscator-settings';
 
 	// Load settings from localStorage if available
 	function loadSettingsFromStorage(): TypofuscatorSettings {
+		if (typeof window === 'undefined') return { ...defaultSettings };
 		try {
 			const raw = localStorage.getItem(SETTINGS_KEY);
 			if (raw) {
@@ -26,45 +21,56 @@
 		return { ...defaultSettings };
 	}
 
-	settings = loadSettingsFromStorage();
+	let inputText = $state('');
+	let manualOutput = $state<string | null>(null);
+	let settings: TypofuscatorSettings = $state(loadSettingsFromStorage());
+	let settingsOpen = $state(false);
+	let copySuccess = $state(false);
 
 	// Save settings to localStorage whenever they change
-	$: {
+	$effect(() => {
 		try {
 			localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 		} catch {
 			// Ignore localStorage errors
 		}
-	}
+	});
 
 	function resetSettingsToDefaults() {
 		settings = { ...defaultSettings };
-		localStorage.removeItem(SETTINGS_KEY);
+		if (typeof window !== 'undefined') {
+			localStorage.removeItem(SETTINGS_KEY);
+		}
 	}
 
-	// Reactive statement to update output whenever input or settings change
-	$: outputText = inputText ? encryptText(inputText, settings) : '';
+	let outputText = $derived(
+		manualOutput !== null ? manualOutput : inputText ? encryptText(inputText, settings) : ''
+	);
 
 	const exampleText =
 		'Algorithm that scrambles letters within words while keeping them readable to humans. People can read it, maybe with difficulty but they can read it. AI gets confused, translator also gets confused, so we can filter out peoples that are using translators.';
 
 	function loadExample() {
+		manualOutput = null;
 		inputText = exampleText;
 	}
 
 	function clearAll() {
+		manualOutput = null;
 		inputText = '';
+	}
+
+	function onInputChange() {
+		manualOutput = null;
 	}
 
 	function regenerateOutput() {
 		if (inputText) {
-			// Force new randomization by using a new random seed temporarily
-			const originalSeed = settings.seed;
 			const tempSettings = {
 				...settings,
-				seed: originalSeed !== undefined ? undefined : Math.random() * 1000000
+				seed: settings.seed !== undefined ? Math.floor(Math.random() * 1000000) : undefined
 			};
-			outputText = encryptText(inputText, tempSettings);
+			manualOutput = encryptText(inputText, tempSettings);
 		}
 	}
 
@@ -100,7 +106,9 @@
 				try {
 					const importedSettings = JSON.parse(e.target?.result as string);
 					settings = { ...defaultSettings, ...importedSettings };
-					localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+					if (typeof window !== 'undefined') {
+						localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+					}
 				} catch {
 					alert('Invalid settings file');
 				}
@@ -153,13 +161,13 @@
 						</label>
 						<div class="flex gap-2">
 							<button
-								on:click={loadExample}
+								onclick={loadExample}
 								class="text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200 px-3 py-1 rounded-md transition-colors"
 							>
 								Load Example
 							</button>
 							<button
-								on:click={clearAll}
+								onclick={clearAll}
 								class="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-md transition-colors"
 							>
 								Clear
@@ -169,6 +177,7 @@
 					<textarea
 						id="input"
 						bind:value={inputText}
+						oninput={onInputChange}
 						placeholder="Enter your text here..."
 						class="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent resize-none text-sm leading-relaxed bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
 					></textarea>
@@ -188,7 +197,7 @@
 						</label>
 						<div class="flex gap-2">
 							<button
-								on:click={copyToClipboard}
+								onclick={copyToClipboard}
 								disabled={!outputText}
 								class="text-xs hover:bg-green-200 dark:hover:bg-green-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 px-3 py-1 rounded-md transition-colors"
 								class:bg-green-100={!copySuccess}
@@ -229,7 +238,7 @@
 			<div class="flex items-center justify-between flex-wrap gap-3">
 				<div class="flex items-center gap-3 flex-wrap">
 					<button
-						on:click={regenerateOutput}
+						onclick={regenerateOutput}
 						disabled={!inputText}
 						class="px-4 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 text-purple-700 dark:text-purple-200 rounded-lg transition-colors font-medium flex items-center gap-2"
 					>
