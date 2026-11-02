@@ -1,0 +1,68 @@
+fail_fast: false
+minimum_prek_version: '0.5.0'
+default_install_hook_types: [pre-commit]
+exclude: |
+  (?x)^(
+    pnpm-lock\.yaml|
+    build/|
+    \.svelte-kit/
+  )$
+
+repos:
+  - repo: meta
+    hooks:
+      - id: identity
+        name: Print checked files
+        description: Print input to the static check hooks for troubleshooting
+        stages: [manual]
+
+  - repo: builtin
+    hooks:
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: check-yaml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=100]
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.51.1
+    hooks:
+      - id: typos
+        args: [--hidden, --no-ignore, --force-exclude]
+
+  - repo: local
+    hooks:
+      - id: local-prettier
+        name: prettier
+        entry: pnpm prettier --check
+        require_serial: true
+        language: system
+        types_or: [javascript, ts, css, json, yaml, html, markdown]
+
+      - id: local-eslint
+        name: eslint
+        entry: pnpm eslint
+        require_serial: true
+        language: system
+        files: ^(src/|eslint\.config\.js)
+        types_or: [javascript, ts]
+
+      - id: local-svelte-check
+        name: svelte-check
+        entry: pnpm check
+        require_serial: true
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: local-test
+        name: vitest
+        entry: pnpm test:run
+        require_serial: true
+        language: system
+        pass_filenames: false
+        always_run: true
