@@ -14,6 +14,6 @@
 			"#lib/*": ["./src/lib/*"]
 		}
 	},
-	"include": ["src", "test", "*"],
+	"include": ["src", "test", "*", "e2e"],
 	"exclude": ["build", ".svelte-kit", "src/service-worker.js"]
 }

@@ -114,17 +114,18 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ### Available Scripts
 
-| Command              | Description                                                      |
-| :------------------- | :--------------------------------------------------------------- |
-| `pnpm dev`           | Start Vite development server with HMR                           |
-| `pnpm build`         | Compile production static build with Brotli/Gzip precompression  |
-| `pnpm preview`       | Locally preview the production static build                      |
-| `pnpm check`         | Run SvelteKit sync and TypeScript diagnostics via `svelte-check` |
-| `pnpm lint`          | Run Prettier format check and ESLint analysis                    |
-| `pnpm format`        | Automatically fix formatting across all files with Prettier      |
-| `pnpm test`          | Run Vitest in interactive watch mode                             |
-| `pnpm test:run`      | Run the complete Vitest test suite once                          |
-| `pnpm test:coverage` | Run Vitest with v8 coverage and enforce thresholds               |
+| Command              | Description                                                         |
+| :------------------- | :------------------------------------------------------------------ |
+| `pnpm dev`           | Start Vite development server with HMR                              |
+| `pnpm build`         | Compile production static build with Brotli/Gzip precompression     |
+| `pnpm preview`       | Locally preview the production static build                         |
+| `pnpm check`         | Run SvelteKit sync and TypeScript diagnostics via `svelte-check`    |
+| `pnpm lint`          | Run Prettier format check and ESLint analysis                       |
+| `pnpm format`        | Automatically fix formatting across all files with Prettier         |
+| `pnpm test`          | Run Vitest in interactive watch mode                                |
+| `pnpm test:run`      | Run the complete Vitest test suite once                             |
+| `pnpm test:coverage` | Run Vitest with v8 coverage and enforce thresholds                  |
+| `pnpm test:e2e`      | Run Playwright end-to-end browser tests (Chromium, Firefox, WebKit) |
 
 ### Pre-commit Quality Pipeline
 

@@ -6,7 +6,9 @@ exclude: |
     pnpm-lock\.yaml|
     build/|
     \.svelte-kit/|
-    coverage/
+    coverage/|
+    test-results/|
+    playwright-report/
   )$
 
 repos:

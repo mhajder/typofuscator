@@ -11,6 +11,8 @@ node_modules
 /package
 /dist
 /coverage
+test-results/
+playwright-report/
 
 # Environment files
 .env

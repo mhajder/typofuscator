@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { encryptText, defaultSettings } from '#lib/typofuscator';
 	import type { TypofuscatorSettings } from '#lib/typofuscator';
 	import SettingsPanel from '#lib/SettingsPanel.svelte';
@@ -26,6 +27,11 @@
 	let settings: TypofuscatorSettings = $state(loadSettingsFromStorage());
 	let settingsOpen = $state(false);
 	let copySuccess = $state(false);
+	let mounted = $state(false);
+
+	onMount(() => {
+		mounted = true;
+	});
 
 	// Save settings to localStorage whenever they change
 	$effect(() => {
@@ -127,6 +133,7 @@
 </svelte:head>
 
 <main
+	data-hydrated={mounted}
 	class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8 px-4"
 >
 	<div class="max-w-4xl mx-auto">

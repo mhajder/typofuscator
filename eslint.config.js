@@ -27,7 +27,9 @@ export default [
 			globals: {
 				window: 'readonly',
 				document: 'readonly',
-				localStorage: 'readonly'
+				localStorage: 'readonly',
+				process: 'readonly',
+				navigator: 'readonly'
 			}
 		},
 		rules: {
@@ -76,6 +78,6 @@ export default [
 	},
 	prettier,
 	{
-		ignores: ['build/', '.svelte-kit/', 'dist/', 'coverage/']
+		ignores: ['build/', '.svelte-kit/', 'dist/', 'coverage/', 'test-results/', 'playwright-report/']
 	}
 ];
