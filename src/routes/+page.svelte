@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { encryptText, defaultSettings } from '$lib/typofuscator';
-	import type { TypofuscatorSettings } from '$lib/typofuscator';
-	import SettingsPanel from '$lib/SettingsPanel.svelte';
-	import ThemeToggle from '$lib/ThemeToggle.svelte';
+	import { encryptText, defaultSettings } from '#lib/typofuscator';
+	import type { TypofuscatorSettings } from '#lib/typofuscator';
+	import SettingsPanel from '#lib/SettingsPanel.svelte';
+	import ThemeToggle from '#lib/ThemeToggle.svelte';
 
 	let inputText = '';
 	let outputText = '';

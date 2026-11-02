@@ -302,8 +302,7 @@
 						bind:value={excludeWordsText}
 						placeholder="word1, word2, word3..."
 						class="text-input"
-						rows="2"
-					></textarea>
+						rows="2"></textarea>
 					<span class="setting-description">Comma-separated list of words to leave unchanged</span>
 				</div>
 			</div>
