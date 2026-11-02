@@ -41,6 +41,12 @@ sw.addEventListener('activate', (event) => {
 	event.waitUntil(deleteOldCaches());
 });
 
+sw.addEventListener('message', (event) => {
+	if (event.data && event.data.type === 'SKIP_WAITING') {
+		sw.skipWaiting();
+	}
+});
+
 sw.addEventListener('fetch', (event) => {
 	if (event.request.method !== 'GET') return;
 

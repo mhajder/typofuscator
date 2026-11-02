@@ -113,11 +113,14 @@ test.describe('Typofuscator E2E Tests', () => {
 		await expect(output).toHaveValue('tnitseg');
 
 		// Enable homoglyphs: All mode + Cyrillic style
-		await page.locator('label.radio-label', { hasText: 'All' }).click();
-		await expect(page.locator('input[value="all"]')).toBeChecked();
+		const homoglyphGroup = page.locator('.setting-group', {
+			hasText: 'Similar Character Replacement'
+		});
+		await homoglyphGroup.locator('label.radio-label', { hasText: 'All' }).click();
+		await expect(homoglyphGroup.locator('input[value="all"]')).toBeChecked();
 
-		await page.locator('label.radio-label', { hasText: 'Cyrillic lookalikes' }).click();
-		await expect(page.locator('input[value="cyrillic"]')).toBeChecked();
+		await homoglyphGroup.locator('label.radio-label', { hasText: 'Cyrillic lookalikes' }).click();
+		await expect(homoglyphGroup.locator('input[value="cyrillic"]')).toBeChecked();
 
 		const cyrillicResult = await output.inputValue();
 		// Should contain non-ASCII characters
@@ -248,5 +251,12 @@ test.describe('Typofuscator E2E Tests', () => {
 		await downloadBtn.click();
 		const download = await downloadPromise;
 		expect(download.suggestedFilename()).toBe('document-obfuscated.txt');
+	});
+
+	test('should keep update toast hidden when no service worker update is waiting', async ({
+		page
+	}) => {
+		const updateToast = page.locator('aside[aria-label="App update notification"]');
+		await expect(updateToast).not.toBeVisible();
 	});
 });

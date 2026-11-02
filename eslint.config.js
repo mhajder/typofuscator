@@ -73,7 +73,8 @@ export default [
 				URLSearchParams: 'readonly',
 				KeyboardEvent: 'readonly',
 				File: 'readonly',
-				DragEvent: 'readonly'
+				DragEvent: 'readonly',
+				ServiceWorker: 'readonly'
 			}
 		},
 		rules: {
