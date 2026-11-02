@@ -48,6 +48,9 @@
 
 - **100% Offline Capability**: Built as an installable Progressive Web App (PWA) with a dedicated Service Worker precaching assets and handling offline fallbacks.
 - **Reactive Interface**: Built with modern **Svelte 5 runes** (`$state`, `$derived`, `$effect`, `$props`) for zero-lag real-time scrambling as you type.
+- **Real-Time Obfuscation Metrics**: Live metrics banner tracking word counts, character transitions, scrambled words ratio, scrambled letter counts, homoglyphs substituted, and overall obfuscation percentage.
+- **URL Shareable State**: Share custom scrambles and configured presets instantly with a 1-click "Copy Share Link" action.
+- **Keyboard Shortcuts**: `Ctrl+Enter` / `Cmd+Enter` to re-scramble, and `Ctrl+Shift+C` / `Cmd+Shift+C` to copy obfuscated text to clipboard.
 - **Theme Detection & Switcher**: System preference detection (`prefers-color-scheme`) with smooth light/dark switching and persistent local storage.
 - **Import / Export Settings**: Easily export and share tailored configuration profiles as JSON.
 - **Zero Tracking**: 100% local client-side execution; your text never leaves your browser.

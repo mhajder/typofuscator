@@ -3,6 +3,15 @@ export type ScrambleAlgorithm = 'swap' | 'shuffle' | 'reverse';
 export type SimilarCharMode = 'off' | 'some' | 'all';
 export type SimilarCharStyle = 'mixed' | 'cyrillic' | 'latin' | 'greek';
 
+export interface ObfuscationMetrics {
+	inputChars: number;
+	outputChars: number;
+	inputWords: number;
+	scrambledWords: number;
+	scrambledLetters: number;
+	homoglyphsSubstituted: number;
+}
+
 export interface TypofuscatorSettings {
 	// First/Last letter control
 	preserveFirstLetter: boolean;
@@ -148,9 +157,13 @@ class SeededRandom {
 
 /**
  * Scrambles text according to the provided settings while maintaining
- * human readability by introducing controlled chaos within words.
+ * human readability by introducing controlled chaos within words,
+ * returning both obfuscated text and detailed transformation metrics.
  */
-export function encryptText(text: string, settings: Partial<TypofuscatorSettings> = {}): string {
+export function encryptTextWithMetrics(
+	text: string,
+	settings: Partial<TypofuscatorSettings> = {}
+): { text: string; metrics: ObfuscationMetrics } {
 	const config = normalizeSettings({ ...defaultSettings, ...settings });
 	const rng = new SeededRandom(config.seed);
 
@@ -158,12 +171,17 @@ export function encryptText(text: string, settings: Partial<TypofuscatorSettings
 	const tokens = text.match(/(\w+|\W+)/g) || [];
 
 	const scrambledTokens: string[] = [];
+	let inputWords = 0;
+	let scrambledWords = 0;
+	let scrambledLetters = 0;
+	let homoglyphsSubstituted = 0;
 
 	for (const token of tokens) {
 		// Check if token is a word (letters and optionally numbers)
 		const isWord = config.includeNumbers ? /^\w+$/.test(token) : /^[a-zA-Z]+$/.test(token);
 
 		if (isWord) {
+			inputWords++;
 			const word = token;
 			const wordLen = word.length;
 
@@ -187,9 +205,23 @@ export function encryptText(text: string, settings: Partial<TypofuscatorSettings
 						retries++;
 					}
 				}
+
+				if (transformedWord !== word) {
+					scrambledWords++;
+					for (let i = 0; i < word.length; i++) {
+						if (word[i] !== transformedWord[i]) {
+							scrambledLetters++;
+						}
+					}
+				}
 			}
 
-			transformedWord = replaceWithSimilarCharacters(transformedWord, config, rng);
+			transformedWord = replaceWithSimilarCharacters(
+				transformedWord,
+				config,
+				rng,
+				() => homoglyphsSubstituted++
+			);
 			scrambledTokens.push(transformedWord);
 		} else {
 			// Separators, punctuation, and whitespace are added without changes
@@ -197,7 +229,27 @@ export function encryptText(text: string, settings: Partial<TypofuscatorSettings
 		}
 	}
 
-	return scrambledTokens.join('');
+	const result = scrambledTokens.join('');
+
+	return {
+		text: result,
+		metrics: {
+			inputChars: text.length,
+			outputChars: result.length,
+			inputWords,
+			scrambledWords,
+			scrambledLetters,
+			homoglyphsSubstituted
+		}
+	};
+}
+
+/**
+ * Scrambles text according to the provided settings while maintaining
+ * human readability by introducing controlled chaos within words.
+ */
+export function encryptText(text: string, settings: Partial<TypofuscatorSettings> = {}): string {
+	return encryptTextWithMetrics(text, settings).text;
 }
 
 function scrambleWord(word: string, config: TypofuscatorSettings, rng: SeededRandom): string {
@@ -353,7 +405,8 @@ function preserveOriginalCase(scrambled: string, original: string): string {
 function replaceWithSimilarCharacters(
 	word: string,
 	config: TypofuscatorSettings,
-	rng: SeededRandom
+	rng: SeededRandom,
+	onReplace?: () => void
 ): string {
 	if (config.similarCharMode === 'off') {
 		return word;
@@ -379,7 +432,11 @@ function replaceWithSimilarCharacters(
 			}
 
 			const idx = Math.floor(rng.next() * variants.length);
-			return variants[idx] ?? char;
+			const replacement = variants[idx] ?? char;
+			if (replacement !== char) {
+				onReplace?.();
+			}
+			return replacement;
 		})
 		.join('');
 }

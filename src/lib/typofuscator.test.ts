@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { encryptText, encryptTextLegacy, defaultSettings } from './typofuscator';
+import {
+	encryptText,
+	encryptTextWithMetrics,
+	encryptTextLegacy,
+	defaultSettings
+} from './typofuscator';
 import type { TypofuscatorSettings } from './typofuscator';
 
 describe('typofuscator', () => {
@@ -684,6 +689,63 @@ describe('typofuscator', () => {
 			const result = encryptText(text, settings);
 			expect(result).toContain('test'); // excluded word
 			expect(result.length).toBe(text.length);
+		});
+	});
+
+	describe('encryptTextWithMetrics', () => {
+		it('should return zeroes for empty string input', () => {
+			const { text, metrics } = encryptTextWithMetrics('');
+			expect(text).toBe('');
+			expect(metrics).toEqual({
+				inputChars: 0,
+				outputChars: 0,
+				inputWords: 0,
+				scrambledWords: 0,
+				scrambledLetters: 0,
+				homoglyphsSubstituted: 0
+			});
+		});
+
+		it('should accurately calculate word, char and scramble counts with deterministic reverse algorithm', () => {
+			// 'testing' with reverse: 't' + 'estin'.reverse() ('nitse') + 'g' = 'tnitseg'
+			// middle: e->n, s->i, t->t, i->s, n->e -> 4 letters scrambled
+			const { text, metrics } = encryptTextWithMetrics('testing', {
+				customAlgorithm: 'reverse'
+			});
+
+			expect(text).toBe('tnitseg');
+			expect(metrics.inputWords).toBe(1);
+			expect(metrics.scrambledWords).toBe(1);
+			expect(metrics.scrambledLetters).toBe(4);
+			expect(metrics.inputChars).toBe(7);
+			expect(metrics.outputChars).toBe(7);
+			expect(metrics.homoglyphsSubstituted).toBe(0);
+		});
+
+		it('should accurately count homoglyphs substituted', () => {
+			const { text, metrics } = encryptTextWithMetrics('camera', {
+				minWordLength: 99, // do not scramble
+				similarCharMode: 'all',
+				similarCharStyle: 'cyrillic',
+				seed: 42
+			});
+
+			// 'camera' -> 'с', 'а', 'м', 'е', 'r', 'а' -> 5 homoglyphs substituted ('r' has no cyrillic lookalike)
+			expect(text).toBe('самеrа');
+			expect(metrics.homoglyphsSubstituted).toBe(5);
+			expect(metrics.scrambledWords).toBe(0);
+			expect(metrics.scrambledLetters).toBe(0);
+		});
+
+		it('should respect excluded words in metrics', () => {
+			const { text, metrics } = encryptTextWithMetrics('secret testing', {
+				customAlgorithm: 'reverse',
+				excludeWords: ['secret']
+			});
+
+			expect(text).toBe('secret tnitseg');
+			expect(metrics.inputWords).toBe(2);
+			expect(metrics.scrambledWords).toBe(1);
 		});
 	});
 });

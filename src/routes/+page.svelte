@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { encryptText, defaultSettings } from '#lib/typofuscator';
-	import type { TypofuscatorSettings } from '#lib/typofuscator';
+	import { SvelteURL } from 'svelte/reactivity';
+	import { encryptTextWithMetrics, defaultSettings } from '#lib/typofuscator';
+	import type {
+		TypofuscatorSettings,
+		ObfuscationMetrics,
+		ScrambleIntensity,
+		ScrambleAlgorithm,
+		SimilarCharMode,
+		SimilarCharStyle
+	} from '#lib/typofuscator';
 	import SettingsPanel from '#lib/SettingsPanel.svelte';
 	import ThemeToggle from '#lib/ThemeToggle.svelte';
 
@@ -23,13 +31,71 @@
 	}
 
 	let inputText = $state('');
-	let manualOutput = $state<string | null>(null);
+	let manualOutput = $state<{ text: string; metrics: ObfuscationMetrics } | null>(null);
 	let settings: TypofuscatorSettings = $state(loadSettingsFromStorage());
 	let settingsOpen = $state(false);
 	let copySuccess = $state(false);
+	let shareSuccess = $state(false);
 	let mounted = $state(false);
 
+	function loadStateFromUrl() {
+		if (typeof window === 'undefined') return;
+		const search = window.location.search;
+		const hash = window.location.hash.replace(/^#\??/, '');
+		const params = new URLSearchParams(search || hash);
+
+		const textParam = params.get('text');
+		if (textParam !== null) {
+			inputText = textParam;
+		}
+
+		const intensityParam = params.get('intensity') as ScrambleIntensity | null;
+		if (intensityParam && ['light', 'medium', 'heavy'].includes(intensityParam)) {
+			settings.scrambleIntensity = intensityParam;
+		}
+
+		const algoParam = params.get('algo') as ScrambleAlgorithm | null;
+		if (algoParam && ['swap', 'shuffle', 'reverse'].includes(algoParam)) {
+			settings.customAlgorithm = algoParam;
+		}
+
+		const homoglyphsParam = params.get('homoglyphs') as SimilarCharMode | null;
+		if (homoglyphsParam && ['off', 'some', 'all'].includes(homoglyphsParam)) {
+			settings.similarCharMode = homoglyphsParam;
+		}
+
+		const styleParam = params.get('style') as SimilarCharStyle | null;
+		if (styleParam && ['mixed', 'cyrillic', 'latin', 'greek'].includes(styleParam)) {
+			settings.similarCharStyle = styleParam;
+		}
+
+		const minWordParam = params.get('minWord');
+		if (minWordParam) {
+			const parsed = parseInt(minWordParam, 10);
+			if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) {
+				settings.minWordLength = parsed;
+			}
+		}
+
+		const excludeParam = params.get('exclude');
+		if (excludeParam) {
+			settings.excludeWords = excludeParam
+				.split(',')
+				.map((w) => w.trim())
+				.filter((w) => w.length > 0);
+		}
+
+		const seedParam = params.get('seed');
+		if (seedParam) {
+			const parsed = parseInt(seedParam, 10);
+			if (!isNaN(parsed)) {
+				settings.seed = parsed;
+			}
+		}
+	}
+
 	onMount(() => {
+		loadStateFromUrl();
 		mounted = true;
 	});
 
@@ -49,9 +115,26 @@
 		}
 	}
 
-	let outputText = $derived(
-		manualOutput !== null ? manualOutput : inputText ? encryptText(inputText, settings) : ''
+	let activeResult = $derived(
+		manualOutput !== null
+			? manualOutput
+			: inputText
+				? encryptTextWithMetrics(inputText, settings)
+				: {
+						text: '',
+						metrics: {
+							inputChars: 0,
+							outputChars: 0,
+							inputWords: 0,
+							scrambledWords: 0,
+							scrambledLetters: 0,
+							homoglyphsSubstituted: 0
+						}
+					}
 	);
+
+	let outputText = $derived(activeResult.text);
+	let metrics = $derived(activeResult.metrics);
 
 	const exampleText =
 		'Algorithm that scrambles letters within words while keeping them readable to humans. People can read it, maybe with difficulty but they can read it. AI gets confused, translator also gets confused, so we can filter out peoples that are using translators.';
@@ -76,7 +159,7 @@
 				...settings,
 				seed: settings.seed !== undefined ? Math.floor(Math.random() * 1000000) : undefined
 			};
-			manualOutput = encryptText(inputText, tempSettings);
+			manualOutput = encryptTextWithMetrics(inputText, tempSettings);
 		}
 	}
 
@@ -89,6 +172,76 @@
 			} catch (err) {
 				console.error('Failed to copy to clipboard:', err);
 			}
+		}
+	}
+
+	function getShareUrl(): string {
+		if (typeof window === 'undefined') return '';
+		const url = new SvelteURL(window.location.href);
+		url.search = '';
+		url.hash = '';
+
+		if (inputText) {
+			url.searchParams.set('text', inputText);
+		}
+		if (settings.scrambleIntensity !== defaultSettings.scrambleIntensity) {
+			url.searchParams.set('intensity', settings.scrambleIntensity);
+		}
+		if (settings.customAlgorithm !== defaultSettings.customAlgorithm) {
+			url.searchParams.set('algo', settings.customAlgorithm);
+		}
+		if (settings.similarCharMode !== defaultSettings.similarCharMode) {
+			url.searchParams.set('homoglyphs', settings.similarCharMode);
+		}
+		if (settings.similarCharStyle !== defaultSettings.similarCharStyle) {
+			url.searchParams.set('style', settings.similarCharStyle);
+		}
+		if (settings.minWordLength !== defaultSettings.minWordLength) {
+			url.searchParams.set('minWord', String(settings.minWordLength));
+		}
+		if (settings.excludeWords.length > 0) {
+			url.searchParams.set('exclude', settings.excludeWords.join(','));
+		}
+		if (settings.seed !== undefined) {
+			url.searchParams.set('seed', String(settings.seed));
+		}
+		return url.toString();
+	}
+
+	async function copyShareLink() {
+		const shareUrl = getShareUrl();
+		if (!shareUrl) return;
+		try {
+			await navigator.clipboard.writeText(shareUrl);
+			if (typeof window !== 'undefined' && window.history) {
+				window.history.replaceState({}, '', shareUrl);
+			}
+			shareSuccess = true;
+			setTimeout(() => (shareSuccess = false), 2000);
+		} catch (err) {
+			console.error('Failed to copy share link:', err);
+		}
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		const isModifier = event.ctrlKey || event.metaKey;
+
+		// Ctrl+Enter or Cmd+Enter: Regenerate scramble
+		if (isModifier && event.key === 'Enter') {
+			if (inputText) {
+				event.preventDefault();
+				regenerateOutput();
+			}
+			return;
+		}
+
+		// Ctrl+Shift+C or Cmd+Shift+C: Copy obfuscated text to clipboard
+		if (isModifier && event.shiftKey && (event.key === 'c' || event.key === 'C')) {
+			if (outputText) {
+				event.preventDefault();
+				copyToClipboard();
+			}
+			return;
 		}
 	}
 
@@ -123,6 +276,8 @@
 		}
 	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
 	<title>Typofuscator - Text Obfuscation Tool</title>
@@ -206,7 +361,7 @@
 							<button
 								onclick={copyToClipboard}
 								disabled={!outputText}
-								class="text-xs hover:bg-green-200 dark:hover:bg-green-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 px-3 py-1 rounded-md transition-colors"
+								class="text-xs hover:bg-green-200 dark:hover:bg-green-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 px-3 py-1 rounded-md transition-colors inline-flex items-center gap-1"
 								class:bg-green-100={!copySuccess}
 								class:dark:bg-green-900={!copySuccess}
 								class:text-green-700={!copySuccess}
@@ -215,6 +370,10 @@
 								class:text-white={copySuccess}
 							>
 								{copySuccess ? '✓ Copied!' : 'Copy to Clipboard'}
+								<kbd
+									class="hidden md:inline-block px-1 py-0.2 bg-black/10 dark:bg-white/10 rounded font-mono text-[9px]"
+									>⌘⇧C</kbd
+								>
 							</button>
 						</div>
 					</div>
@@ -236,6 +395,75 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Real-time Obfuscation Metrics Banner -->
+			<div
+				id="metrics-panel"
+				class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center"
+			>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
+				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Total Words</span>
+					<span class="text-base font-bold text-gray-800 dark:text-gray-200"
+						>{metrics.inputWords}</span
+					>
+				</div>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
+				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Characters</span>
+					<span class="text-base font-bold text-gray-800 dark:text-gray-200"
+						>{metrics.inputChars} → {metrics.outputChars}</span
+					>
+				</div>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
+				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Words Scrambled</span>
+					<span class="text-base font-bold text-indigo-600 dark:text-indigo-400">
+						{metrics.scrambledWords}
+						<span class="text-xs font-normal text-gray-500 dark:text-gray-400">
+							({metrics.inputWords > 0
+								? Math.round((metrics.scrambledWords / metrics.inputWords) * 100)
+								: 0}%)
+						</span>
+					</span>
+				</div>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
+				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Letters Scrambled</span>
+					<span class="text-base font-bold text-indigo-600 dark:text-indigo-400"
+						>{metrics.scrambledLetters}</span
+					>
+				</div>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
+				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Homoglyphs</span>
+					<span class="text-base font-bold text-amber-600 dark:text-amber-400"
+						>{metrics.homoglyphsSubstituted}</span
+					>
+				</div>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
+				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Obfuscation Rate</span>
+					<span class="text-base font-bold text-emerald-600 dark:text-emerald-400">
+						{metrics.inputChars > 0
+							? Math.min(
+									100,
+									Math.round(
+										((metrics.scrambledLetters + metrics.homoglyphsSubstituted) /
+											metrics.inputChars) *
+											100
+									)
+								)
+							: 0}%
+					</span>
+				</div>
+			</div>
 		</div>
 
 		<!-- Quick Actions -->
@@ -250,7 +478,40 @@
 						class="px-4 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 text-purple-700 dark:text-purple-200 rounded-lg transition-colors font-medium flex items-center gap-2"
 					>
 						🎲 Regenerate
+						<kbd
+							class="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded font-mono"
+							>⌘↵</kbd
+						>
 					</button>
+
+					<button
+						onclick={copyShareLink}
+						disabled={!inputText}
+						class="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 text-indigo-700 dark:text-indigo-200 rounded-lg transition-colors font-medium flex items-center gap-2"
+						class:bg-indigo-600={shareSuccess}
+						class:text-white={shareSuccess}
+					>
+						{shareSuccess ? '✓ Link Copied!' : '🔗 Copy Share Link'}
+					</button>
+				</div>
+
+				<div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
+					<span>Shortcuts:</span>
+					<span class="inline-flex items-center gap-1">
+						<kbd
+							class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]"
+							>Ctrl+Enter</kbd
+						>
+						scramble
+					</span>
+					<span>•</span>
+					<span class="inline-flex items-center gap-1">
+						<kbd
+							class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]"
+							>Ctrl+Shift+C</kbd
+						>
+						copy
+					</span>
 				</div>
 			</div>
 		</div>

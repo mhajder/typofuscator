@@ -69,7 +69,9 @@ export default [
 				HTMLInputElement: 'readonly',
 				FileReader: 'readonly',
 				alert: 'readonly',
-				localStorage: 'readonly'
+				localStorage: 'readonly',
+				URLSearchParams: 'readonly',
+				KeyboardEvent: 'readonly'
 			}
 		},
 		rules: {

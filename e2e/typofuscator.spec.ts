@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Typofuscator E2E Tests', () => {
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ context, page, browserName }) => {
+		if (browserName === 'chromium') {
+			await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+		}
 		await page.goto('/');
 		await page.locator('main[data-hydrated="true"]').waitFor();
 	});
@@ -139,14 +142,9 @@ test.describe('Typofuscator E2E Tests', () => {
 	});
 
 	test('should copy output to clipboard when clicking copy button', async ({
-		context,
 		page,
 		browserName
 	}) => {
-		if (browserName === 'chromium') {
-			await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-		}
-
 		const input = page.locator('#input');
 		const output = page.locator('#output');
 		const copyBtn = page.getByRole('button', { name: /Copy to Clipboard/i });
@@ -165,5 +163,61 @@ test.describe('Typofuscator E2E Tests', () => {
 			const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
 			expect(clipboardText).toBe(expectedText);
 		}
+	});
+
+	test('should display and update real-time obfuscation metrics', async ({ page }) => {
+		const input = page.locator('#input');
+		const metricsPanel = page.locator('#metrics-panel');
+
+		await expect(metricsPanel).toBeVisible();
+		await expect(metricsPanel).toContainText('Total Words');
+
+		await input.fill('Scrambling metrics calculation test');
+		await expect(metricsPanel).toContainText('Total Words');
+		// 4 words in total
+		await expect(metricsPanel).toContainText('4');
+	});
+
+	test('should support sharing state via URL parameters and load shared state', async ({
+		page
+	}) => {
+		// Test sharing action button
+		const input = page.locator('#input');
+		const shareBtn = page.getByRole('button', { name: /Copy Share Link/i });
+
+		await expect(shareBtn).toBeDisabled();
+		await input.fill('Shareable custom text');
+		await expect(shareBtn).toBeEnabled();
+
+		await shareBtn.click();
+		await expect(page.getByRole('button', { name: /Link Copied!/i })).toBeVisible();
+
+		// Test loading shared state from URL
+		await page.goto('/?text=SharedPayload&algo=reverse');
+		await page.locator('main[data-hydrated="true"]').waitFor();
+
+		const sharedInput = page.locator('#input');
+		const sharedOutput = page.locator('#output');
+
+		await expect(sharedInput).toHaveValue('SharedPayload');
+		// 'SharedPayload' with reverse: 'S' + 'haredPayloa'.split('').reverse().join('') + 'd'
+		const expectedReverse = 'S' + 'haredPayloa'.split('').reverse().join('') + 'd';
+		await expect(sharedOutput).toHaveValue(expectedReverse);
+	});
+
+	test('should support keyboard shortcuts for regeneration and copying', async ({ page }) => {
+		const input = page.locator('#input');
+		const output = page.locator('#output');
+
+		await input.fill('Keyboard shortcut acceleration');
+		await expect(output).not.toHaveValue('');
+
+		// Ctrl+Enter or Meta+Enter to regenerate
+		await page.keyboard.press('Control+Enter');
+		await expect(output).not.toHaveValue('');
+
+		// Ctrl+Shift+C or Meta+Shift+C to copy
+		await page.keyboard.press('Control+Shift+C');
+		await expect(page.getByRole('button', { name: /Copied!/i })).toBeVisible();
 	});
 });
