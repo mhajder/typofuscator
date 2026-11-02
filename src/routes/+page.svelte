@@ -9,7 +9,8 @@
 		ScrambleAlgorithm,
 		SimilarCharMode,
 		SimilarCharStyle,
-		ZeroWidthMode
+		ZeroWidthMode,
+		QwertyTypoMode
 	} from '#lib/typofuscator';
 	import SettingsPanel from '#lib/SettingsPanel.svelte';
 	import ThemeToggle from '#lib/ThemeToggle.svelte';
@@ -75,6 +76,19 @@
 			settings.zeroWidthMode = zeroWidthParam;
 		}
 
+		const qwertyParam = params.get('qwerty') as QwertyTypoMode | null;
+		if (qwertyParam && ['off', 'some', 'all'].includes(qwertyParam)) {
+			settings.qwertyTypoMode = qwertyParam;
+		}
+
+		const qwertyRateParam = params.get('qwertyRate');
+		if (qwertyRateParam) {
+			const parsed = parseInt(qwertyRateParam, 10);
+			if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+				settings.qwertyTypoRate = parsed;
+			}
+		}
+
 		const minWordParam = params.get('minWord');
 		if (minWordParam) {
 			const parsed = parseInt(minWordParam, 10);
@@ -135,7 +149,8 @@
 							scrambledWords: 0,
 							scrambledLetters: 0,
 							homoglyphsSubstituted: 0,
-							zeroWidthInjected: 0
+							zeroWidthInjected: 0,
+							qwertyTyposSubstituted: 0
 						}
 					}
 	);
@@ -205,6 +220,12 @@
 		}
 		if (settings.zeroWidthMode !== defaultSettings.zeroWidthMode) {
 			url.searchParams.set('zeroWidth', settings.zeroWidthMode);
+		}
+		if (settings.qwertyTypoMode !== defaultSettings.qwertyTypoMode) {
+			url.searchParams.set('qwerty', settings.qwertyTypoMode);
+		}
+		if (settings.qwertyTypoRate !== defaultSettings.qwertyTypoRate) {
+			url.searchParams.set('qwertyRate', String(settings.qwertyTypoRate));
 		}
 		if (settings.minWordLength !== defaultSettings.minWordLength) {
 			url.searchParams.set('minWord', String(settings.minWordLength));
@@ -409,7 +430,7 @@
 			<!-- Real-time Obfuscation Metrics Banner -->
 			<div
 				id="metrics-panel"
-				class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 text-center"
+				class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-center"
 			>
 				<div
 					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
@@ -465,7 +486,15 @@
 					>
 				</div>
 				<div
-					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 col-span-2 sm:col-span-3 lg:col-span-1"
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
+				>
+					<span class="block text-xs text-gray-500 dark:text-gray-400">Typos</span>
+					<span class="text-base font-bold text-rose-600 dark:text-rose-400"
+						>{metrics.qwertyTyposSubstituted}</span
+					>
+				</div>
+				<div
+					class="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800"
 				>
 					<span class="block text-xs text-gray-500 dark:text-gray-400">Obfuscation Rate</span>
 					<span class="text-base font-bold text-emerald-600 dark:text-emerald-400">
@@ -475,7 +504,8 @@
 									Math.round(
 										((metrics.scrambledLetters +
 											metrics.homoglyphsSubstituted +
-											metrics.zeroWidthInjected) /
+											metrics.zeroWidthInjected +
+											metrics.qwertyTyposSubstituted) /
 											metrics.inputChars) *
 											100
 									)

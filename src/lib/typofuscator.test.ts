@@ -442,6 +442,8 @@ describe('typofuscator', () => {
 			expect(defaultSettings.similarCharStyle).toBe('mixed');
 			expect(defaultSettings.similarCharRate).toBe(35);
 			expect(defaultSettings.zeroWidthMode).toBe('off');
+			expect(defaultSettings.qwertyTypoMode).toBe('off');
+			expect(defaultSettings.qwertyTypoRate).toBe(20);
 		});
 	});
 
@@ -704,7 +706,8 @@ describe('typofuscator', () => {
 				scrambledWords: 0,
 				scrambledLetters: 0,
 				homoglyphsSubstituted: 0,
-				zeroWidthInjected: 0
+				zeroWidthInjected: 0,
+				qwertyTyposSubstituted: 0
 			});
 		});
 
@@ -797,6 +800,67 @@ describe('typofuscator', () => {
 				zeroWidthMode: 'invalid'
 			});
 			expect(metrics.zeroWidthInjected).toBe(0);
+		});
+	});
+
+	describe('QWERTY Keyboard Proximity Typos', () => {
+		it('should not introduce typos when mode is off', () => {
+			const { text, metrics } = encryptTextWithMetrics('hello world', {
+				minWordLength: 99,
+				qwertyTypoMode: 'off'
+			});
+
+			expect(text).toBe('hello world');
+			expect(metrics.qwertyTyposSubstituted).toBe(0);
+		});
+
+		it('should substitute letters with adjacent keys in all mode', () => {
+			const { text, metrics } = encryptTextWithMetrics('hello', {
+				minWordLength: 99,
+				qwertyTypoMode: 'all',
+				seed: 42
+			});
+
+			expect(text).not.toBe('hello');
+			expect(metrics.qwertyTyposSubstituted).toBe(5);
+		});
+
+		it('should preserve uppercase when substituting typos', () => {
+			const { text } = encryptTextWithMetrics('HELLO', {
+				minWordLength: 99,
+				qwertyTypoMode: 'all',
+				seed: 42
+			});
+
+			expect(text).toBe(text.toUpperCase());
+		});
+
+		it('should respect typo slip rate when mode is some', () => {
+			const { metrics: metrics0 } = encryptTextWithMetrics('supercalifragilisticexpialidocious', {
+				minWordLength: 99,
+				qwertyTypoMode: 'some',
+				qwertyTypoRate: 0,
+				seed: 42
+			});
+			expect(metrics0.qwertyTyposSubstituted).toBe(0);
+
+			const { metrics: metrics100 } = encryptTextWithMetrics('supercalifragilisticexpialidocious', {
+				minWordLength: 99,
+				qwertyTypoMode: 'some',
+				qwertyTypoRate: 100,
+				seed: 42
+			});
+			expect(metrics100.qwertyTyposSubstituted).toBeGreaterThan(0);
+		});
+
+		it('should clamp invalid typo modes and rates', () => {
+			const { metrics } = encryptTextWithMetrics('test', {
+				minWordLength: 99,
+				// @ts-expect-error testing invalid mode
+				qwertyTypoMode: 'unknown',
+				qwertyTypoRate: 200
+			});
+			expect(metrics.qwertyTyposSubstituted).toBe(0);
 		});
 	});
 });

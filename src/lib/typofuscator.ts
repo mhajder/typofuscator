@@ -3,6 +3,7 @@ export type ScrambleAlgorithm = 'swap' | 'shuffle' | 'reverse';
 export type SimilarCharMode = 'off' | 'some' | 'all';
 export type SimilarCharStyle = 'mixed' | 'cyrillic' | 'latin' | 'greek';
 export type ZeroWidthMode = 'off' | 'subtle' | 'aggressive';
+export type QwertyTypoMode = 'off' | 'some' | 'all';
 
 export const ZERO_WIDTH_CHARS = ['\u200B', '\u200C', '\u200D', '\uFEFF'];
 
@@ -14,6 +15,7 @@ export interface ObfuscationMetrics {
 	scrambledLetters: number;
 	homoglyphsSubstituted: number;
 	zeroWidthInjected: number;
+	qwertyTyposSubstituted: number;
 }
 
 export interface TypofuscatorSettings {
@@ -46,6 +48,8 @@ export interface TypofuscatorSettings {
 	similarCharStyle: SimilarCharStyle;
 	similarCharRate: number;
 	zeroWidthMode: ZeroWidthMode;
+	qwertyTypoMode: QwertyTypoMode;
+	qwertyTypoRate: number;
 }
 
 export const defaultSettings: TypofuscatorSettings = {
@@ -65,7 +69,9 @@ export const defaultSettings: TypofuscatorSettings = {
 	similarCharMode: 'off',
 	similarCharStyle: 'mixed',
 	similarCharRate: 35,
-	zeroWidthMode: 'off'
+	zeroWidthMode: 'off',
+	qwertyTypoMode: 'off',
+	qwertyTypoRate: 20
 };
 
 const cyrillicLookalikes: Record<string, string[]> = {
@@ -147,6 +153,35 @@ const greekLookalikes: Record<string, string[]> = {
 	Y: ['Υ']
 };
 
+const qwertyAdjacency: Record<string, string[]> = {
+	q: ['w', 'a', 's'],
+	w: ['q', 'e', 'a', 's', 'd'],
+	e: ['w', 'r', 's', 'd'],
+	r: ['e', 't', 'd', 'f'],
+	t: ['r', 'y', 'f', 'g'],
+	y: ['t', 'u', 'g', 'h'],
+	u: ['y', 'i', 'h', 'j'],
+	i: ['u', 'o', 'j', 'k'],
+	o: ['i', 'p', 'k', 'l'],
+	p: ['o', 'l'],
+	a: ['q', 'w', 's', 'z'],
+	s: ['w', 'e', 'a', 'd', 'z', 'x'],
+	d: ['e', 'r', 's', 'f', 'x', 'c'],
+	f: ['r', 't', 'd', 'g', 'c', 'v'],
+	g: ['t', 'y', 'f', 'h', 'v', 'b'],
+	h: ['y', 'u', 'g', 'j', 'b', 'n'],
+	j: ['u', 'i', 'h', 'k', 'n', 'm'],
+	k: ['i', 'o', 'j', 'l', 'm'],
+	l: ['o', 'p', 'k'],
+	z: ['a', 's', 'x'],
+	x: ['z', 's', 'd', 'c'],
+	c: ['x', 'd', 'f', 'v'],
+	v: ['c', 'f', 'g', 'b'],
+	b: ['v', 'g', 'h', 'n'],
+	n: ['b', 'h', 'j', 'm'],
+	m: ['n', 'j', 'k']
+};
+
 // Seeded random number generator for reproducible results
 class SeededRandom {
 	private seed: number;
@@ -182,6 +217,7 @@ export function encryptTextWithMetrics(
 	let scrambledLetters = 0;
 	let homoglyphsSubstituted = 0;
 	let zeroWidthInjected = 0;
+	let qwertyTyposSubstituted = 0;
 
 	for (const token of tokens) {
 		// Check if token is a word (letters and optionally numbers)
@@ -230,6 +266,13 @@ export function encryptTextWithMetrics(
 				() => homoglyphsSubstituted++
 			);
 
+			transformedWord = replaceWithQwertyTypos(
+				transformedWord,
+				config,
+				rng,
+				() => qwertyTyposSubstituted++
+			);
+
 			transformedWord = injectZeroWidthCharacters(
 				transformedWord,
 				config.zeroWidthMode,
@@ -256,7 +299,8 @@ export function encryptTextWithMetrics(
 			scrambledWords,
 			scrambledLetters,
 			homoglyphsSubstituted,
-			zeroWidthInjected
+			zeroWidthInjected,
+			qwertyTyposSubstituted
 		}
 	};
 }
@@ -515,6 +559,47 @@ function injectZeroWidthCharacters(
 	return result.join('');
 }
 
+function replaceWithQwertyTypos(
+	word: string,
+	config: TypofuscatorSettings,
+	rng: SeededRandom,
+	onReplace?: () => void
+): string {
+	if (config.qwertyTypoMode === 'off') {
+		return word;
+	}
+
+	const rate = Math.max(0, Math.min(100, config.qwertyTypoRate));
+	const shouldReplace = (): boolean => {
+		if (config.qwertyTypoMode === 'all') {
+			return true;
+		}
+		if (config.qwertyTypoMode === 'some') {
+			return rng.next() < rate / 100;
+		}
+		return false;
+	};
+
+	return word
+		.split('')
+		.map((char) => {
+			const lower = char.toLowerCase();
+			const neighbors = qwertyAdjacency[lower];
+			if (!neighbors || neighbors.length === 0 || !shouldReplace()) {
+				return char;
+			}
+
+			const idx = Math.floor(rng.next() * neighbors.length);
+			const chosen = neighbors[idx];
+			const replacement = char === char.toUpperCase() ? chosen.toUpperCase() : chosen;
+			if (replacement !== char) {
+				onReplace?.();
+			}
+			return replacement;
+		})
+		.join('');
+}
+
 function normalizeSettings(settings: TypofuscatorSettings): TypofuscatorSettings {
 	const allowedStyles: SimilarCharStyle[] = ['mixed', 'cyrillic', 'latin', 'greek'];
 	const style = allowedStyles.includes(settings.similarCharStyle)
@@ -531,12 +616,19 @@ function normalizeSettings(settings: TypofuscatorSettings): TypofuscatorSettings
 		? settings.zeroWidthMode
 		: defaultSettings.zeroWidthMode;
 
+	const allowedQwertyModes: QwertyTypoMode[] = ['off', 'some', 'all'];
+	const qwertyTypoMode = allowedQwertyModes.includes(settings.qwertyTypoMode)
+		? settings.qwertyTypoMode
+		: defaultSettings.qwertyTypoMode;
+
 	return {
 		...settings,
 		similarCharStyle: style,
 		similarCharMode: mode,
 		similarCharRate: Math.max(0, Math.min(100, settings.similarCharRate)),
-		zeroWidthMode
+		zeroWidthMode,
+		qwertyTypoMode,
+		qwertyTypoRate: Math.max(0, Math.min(100, settings.qwertyTypoRate))
 	};
 }
 

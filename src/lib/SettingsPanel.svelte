@@ -5,7 +5,8 @@
 		ScrambleAlgorithm,
 		SimilarCharMode,
 		SimilarCharStyle,
-		ZeroWidthMode
+		ZeroWidthMode,
+		QwertyTypoMode
 	} from './typofuscator';
 	import { defaultSettings } from './typofuscator';
 
@@ -89,6 +90,16 @@
 			label: 'Aggressive',
 			description: 'Inject inside ~70% of character boundaries'
 		}
+	];
+
+	const qwertyTypoModeOptions: { value: QwertyTypoMode; label: string; description: string }[] = [
+		{ value: 'off', label: 'Off', description: 'Disable keyboard typos' },
+		{
+			value: 'some',
+			label: 'Some',
+			description: 'Replace a percentage of letters with adjacent keys'
+		},
+		{ value: 'all', label: 'All', description: 'Replace all eligible letters with adjacent keys' }
 	];
 </script>
 
@@ -333,6 +344,45 @@
 				<span class="setting-description"
 					>Injects non-printable zero-width characters (ZWSP, ZWNJ, ZWJ) to fragment AI/LLM
 					tokenizers while remaining visually identical to humans.</span
+				>
+			</div>
+
+			<!-- QWERTY Proximity Typos -->
+			<div class="setting-group">
+				<h4 class="setting-group-title">QWERTY Keyboard Proximity Typos</h4>
+				<div class="setting-row">
+					<div class="radio-group">
+						{#each qwertyTypoModeOptions as option (option.value)}
+							<label class="radio-label">
+								<input type="radio" bind:group={settings.qwertyTypoMode} value={option.value} />
+								<span class="radio-button"></span>
+								<div class="radio-content">
+									<span class="radio-title">{option.label}</span>
+									<span class="radio-description">{option.description}</span>
+								</div>
+							</label>
+						{/each}
+					</div>
+				</div>
+
+				{#if settings.qwertyTypoMode === 'some'}
+					<div class="setting-row">
+						<label for="qwertyTypoRate" class="input-label">Typo slip rate:</label>
+						<input
+							id="qwertyTypoRate"
+							type="range"
+							min="0"
+							max="100"
+							step="1"
+							bind:value={settings.qwertyTypoRate}
+							class="range-input"
+						/>
+						<span class="setting-description">{settings.qwertyTypoRate}% chance per letter</span>
+					</div>
+				{/if}
+				<span class="setting-description"
+					>Substitutes letters with physically adjacent keys on a standard QWERTY keyboard layout to
+					simulate realistic typing mistakes.</span
 				>
 			</div>
 
