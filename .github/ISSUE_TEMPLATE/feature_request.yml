@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a new feature, algorithm, or improvement
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Explain the limitation or scenario that Typofuscator cannot currently handle.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the feature, new scrambling algorithm, homoglyph alphabet, or UI enhancement you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any alternative solutions or workarounds you have considered.

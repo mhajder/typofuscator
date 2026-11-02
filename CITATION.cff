@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: 'If you use this software, please cite it as below.'
+type: software
+title: 'Typofuscator'
+abstract: 'Text obfuscation tool that scrambles words and substitutes lookalike characters (homoglyphs) while maintaining human readability.'
+authors:
+  - given-names: Mateusz
+    family-names: Hajder
+repository-code: 'https://github.com/mhajder/typofuscator'
+url: 'https://mhajder.github.io/typofuscator'
+license: AGPL-3.0-only
+version: 0.2.0
+keywords:
+  - typoglycemia
+  - obfuscation
+  - homoglyphs
+  - text-processing
+  - svelte
+  - pwa

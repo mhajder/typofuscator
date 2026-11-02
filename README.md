@@ -149,7 +149,7 @@ Pre-commit hooks validate:
 
 ## 🤝 Contributing
 
-Contributions, bug reports, and suggestions are welcome!
+Contributions, bug reports, and suggestions are welcome! Please check out [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines, and follow [SECURITY.md](SECURITY.md) to report vulnerabilities privately.
 
 1. Fork the repository.
 2. Create a feature branch (`git checkout -b feat/amazing-feature`).
