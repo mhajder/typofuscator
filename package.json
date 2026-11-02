@@ -22,7 +22,8 @@
 		"format": "prettier --write .",
 		"test": "vitest",
 		"test:ui": "vitest --ui",
-		"test:run": "vitest run"
+		"test:run": "vitest run",
+		"test:coverage": "vitest run --coverage"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -35,6 +36,7 @@
 		"@types/node": "^26.6.6",
 		"@typescript-eslint/eslint-plugin": "^8.72.1",
 		"@typescript-eslint/parser": "^8.72.1",
+		"@vitest/coverage-v8": "^5.0.5",
 		"@vitest/ui": "^5.0.5",
 		"autoprefixer": "^10.6.2",
 		"eslint": "^10.14.0",

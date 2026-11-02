@@ -2,12 +2,12 @@ import { writable } from 'svelte/store';
 
 export type Theme = 'light' | 'dark';
 
-function getSystemTheme(): Theme {
+export function getSystemTheme(): Theme {
 	if (typeof window === 'undefined') return 'light';
 	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function getStoredTheme(): Theme | null {
+export function getStoredTheme(): Theme | null {
 	if (typeof window === 'undefined') return null;
 	return window.localStorage.getItem('typofuscator-theme') as Theme | null;
 }
@@ -53,7 +53,7 @@ function createThemeStore() {
 	};
 }
 
-function applyTheme(theme: Theme) {
+export function applyTheme(theme: Theme) {
 	if (typeof window === 'undefined') return;
 
 	const html = window.document.documentElement;

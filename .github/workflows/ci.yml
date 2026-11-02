@@ -35,6 +35,9 @@ jobs:
         with:
           extra-args: --all-files
 
+      - name: Run test coverage
+        run: pnpm test:coverage
+
       - name: Dependency audit
         run: pnpm audit --audit-level=high
 

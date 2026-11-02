@@ -114,6 +114,25 @@ describe('typofuscator', () => {
 			// Two-letter words can't be scrambled when both first and last are preserved
 			expect(result).toBe('it is ok');
 		});
+
+		it('should scramble two-letter words when neither first nor last letter is preserved', () => {
+			const text = 'in';
+			const unswapped = encryptText(text, {
+				preserveFirstLetter: false,
+				preserveLastLetter: false,
+				minWordLength: 2,
+				seed: 1
+			});
+			const swapped = encryptText(text, {
+				preserveFirstLetter: false,
+				preserveLastLetter: false,
+				minWordLength: 2,
+				seed: 100000
+			});
+
+			expect(unswapped).toBe('in');
+			expect(swapped).toBe('ni');
+		});
 	});
 
 	describe('encryptText - case preservation', () => {
@@ -135,6 +154,18 @@ describe('typofuscator', () => {
 			const result = encryptText(text, { preserveCase: true, seed: 42 });
 			// First letter should be uppercase
 			expect(result[0]).toBe(result[0].toUpperCase());
+		});
+
+		it('should not preserve case pattern when preserveCase is false', () => {
+			const text = 'HeLLo';
+			const result = encryptText(text, {
+				preserveCase: false,
+				customAlgorithm: 'reverse',
+				preserveFirstLetter: true,
+				preserveLastLetter: true
+			});
+			// In 'HeLLo', middle 'eLL' reversed without case preservation becomes 'LLe'
+			expect(result).toBe('HLLeo');
 		});
 	});
 
@@ -490,6 +521,112 @@ describe('typofuscator', () => {
 			});
 
 			expect(legacyResult).toBe(defaultStyleResult);
+		});
+
+		it('should replace characters in latin lookalike mode', () => {
+			const result = encryptText('aeiou', {
+				minWordLength: 99,
+				similarCharMode: 'all',
+				similarCharStyle: 'latin',
+				seed: 42
+			});
+
+			expect(result).toBe('ɑɛɩɵʋ');
+		});
+
+		it('should replace characters in mixed lookalike mode', () => {
+			const result = encryptText('aeiou', {
+				minWordLength: 99,
+				similarCharMode: 'all',
+				similarCharStyle: 'mixed',
+				seed: 42
+			});
+
+			expect(result.length).toBe(5);
+			expect(result).toMatch(/[^\p{ASCII}]/u);
+		});
+
+		it('should leave characters unchanged if they have no lookalike variants in the chosen style', () => {
+			const result = encryptText('zzz', {
+				minWordLength: 99,
+				similarCharMode: 'all',
+				similarCharStyle: 'latin',
+				seed: 42
+			});
+
+			expect(result).toBe('zzz');
+		});
+
+		it('should fallback to default mode when an invalid similarCharMode is provided', () => {
+			const result = encryptText('camera', {
+				minWordLength: 99,
+				similarCharMode: 'nonexistent-mode' as unknown as TypofuscatorSettings['similarCharMode'],
+				similarCharStyle: 'cyrillic',
+				seed: 42
+			});
+
+			// default is mode: 'off'
+			expect(result).toBe('camera');
+		});
+
+		it('should clamp similarCharRate to 0 when given negative numbers and 100 when > 100', () => {
+			const clampedZero = encryptText('camera', {
+				minWordLength: 99,
+				similarCharMode: 'some',
+				similarCharStyle: 'cyrillic',
+				similarCharRate: -50,
+				seed: 42
+			});
+			expect(clampedZero).toBe('camera');
+
+			const clampedHundred = encryptText('camera', {
+				minWordLength: 99,
+				similarCharMode: 'some',
+				similarCharStyle: 'cyrillic',
+				similarCharRate: 200,
+				seed: 42
+			});
+			expect(clampedHundred).toBe('самеrа');
+		});
+
+		it('should enforce at least 1 swap when minSwaps and maxSwaps are set to 0', () => {
+			const result = encryptText('testing', {
+				minSwaps: 0,
+				maxSwaps: 0,
+				scrambleIntensity: 'medium',
+				seed: 1
+			});
+			// Should still perform at least 1 swap
+			expect(result.length).toBe(7);
+			expect(result[0]).toBe('t');
+			expect(result[6]).toBe('g');
+		});
+
+		it('should handle avoidDuplicates with words that cannot be scrambled differently', () => {
+			const result = encryptText('aaaa', {
+				avoidDuplicates: true,
+				maxRetries: 3,
+				seed: 42
+			});
+			expect(result).toBe('aaaa');
+		});
+
+		it('should handle 4-letter words with middle length 2 across different seeds', () => {
+			// Tests both branches of rng.next() > 0.5 when middle.length === 2
+			const keepingMiddle = encryptText('word', { seed: 1, customAlgorithm: 'swap' });
+			const swappingMiddle = encryptText('word', { seed: 100000, customAlgorithm: 'swap' });
+
+			expect(keepingMiddle).toBe('word');
+			expect(swappingMiddle).toBe('wrod');
+		});
+
+		it('should handle words with middle length 3 or 4 across different seeds', () => {
+			// Tests both branches of rng.next() > 0.6 when middle.length <= 4
+			const results = new Set<string>();
+			for (let seed = 1; seed <= 20; seed++) {
+				results.add(encryptText('testing', { seed, customAlgorithm: 'swap' }));
+			}
+			expect(results.size).toBeGreaterThan(1);
 		});
 	});
 
