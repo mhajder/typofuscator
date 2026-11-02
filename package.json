@@ -13,6 +13,7 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"scripts": {
+		"prepare": "svelte-kit sync",
 		"build": "vite build",
 		"dev": "vite dev",
 		"preview": "vite preview",

@@ -45,14 +45,6 @@ repos:
         language: system
         types_or: [javascript, ts, css, json, yaml, html, markdown]
 
-      - id: local-eslint
-        name: eslint
-        entry: pnpm eslint
-        require_serial: true
-        language: system
-        files: ^(src/|eslint\.config\.js)
-        types_or: [javascript, ts]
-
       - id: local-svelte-check
         name: svelte-check
         entry: pnpm check
@@ -60,6 +52,14 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      - id: local-eslint
+        name: eslint
+        entry: pnpm eslint
+        require_serial: true
+        language: system
+        files: ^(src/|eslint\.config\.js)
+        types_or: [javascript, ts]
 
       - id: local-test
         name: vitest
