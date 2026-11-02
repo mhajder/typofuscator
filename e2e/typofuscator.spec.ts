@@ -183,14 +183,14 @@ test.describe('Typofuscator E2E Tests', () => {
 	}) => {
 		// Test sharing action button
 		const input = page.locator('#input');
-		const shareBtn = page.getByRole('button', { name: /Copy Share Link/i });
+		const shareBtn = page.getByRole('button', { name: /Share Link/i });
 
 		await expect(shareBtn).toBeDisabled();
 		await input.fill('Shareable custom text');
 		await expect(shareBtn).toBeEnabled();
 
 		await shareBtn.click();
-		await expect(page.getByRole('button', { name: /Link Copied!/i })).toBeVisible();
+		await expect(page.getByRole('button', { name: /(?:Link Copied!|Shared!)/i })).toBeVisible();
 
 		// Test loading shared state from URL
 		await page.goto('/?text=SharedPayload&algo=reverse');

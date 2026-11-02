@@ -40,6 +40,7 @@
 	let copySuccess = $state(false);
 	let shareSuccess = $state(false);
 	let showDiff = $state(false);
+	let canShare = $state(false);
 	let mounted = $state(false);
 
 	function loadStateFromUrl() {
@@ -118,6 +119,7 @@
 
 	onMount(() => {
 		loadStateFromUrl();
+		canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 		mounted = true;
 	});
 
@@ -247,11 +249,32 @@
 	async function copyShareLink() {
 		const shareUrl = getShareUrl();
 		if (!shareUrl) return;
+
+		if (typeof window !== 'undefined' && window.history) {
+			window.history.replaceState({}, '', shareUrl);
+		}
+
+		if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+			try {
+				await navigator.share({
+					title: 'Typofuscator',
+					text: inputText
+						? `Obfuscated text: "${outputText.slice(0, 100)}${outputText.length > 100 ? '...' : ''}"`
+						: 'Typofuscator - Text Obfuscation Tool',
+					url: shareUrl
+				});
+				shareSuccess = true;
+				setTimeout(() => (shareSuccess = false), 2000);
+				return;
+			} catch (err: unknown) {
+				if (err instanceof Error && err.name === 'AbortError') {
+					return;
+				}
+			}
+		}
+
 		try {
 			await navigator.clipboard.writeText(shareUrl);
-			if (typeof window !== 'undefined' && window.history) {
-				window.history.replaceState({}, '', shareUrl);
-			}
 			shareSuccess = true;
 			setTimeout(() => (shareSuccess = false), 2000);
 		} catch (err) {
@@ -615,7 +638,11 @@
 						class:bg-indigo-600={shareSuccess}
 						class:text-white={shareSuccess}
 					>
-						{shareSuccess ? '✓ Link Copied!' : '🔗 Copy Share Link'}
+						{#if shareSuccess}
+							{canShare ? '✓ Shared!' : '✓ Link Copied!'}
+						{:else}
+							{canShare ? '📤 Share Link' : '🔗 Copy Share Link'}
+						{/if}
 					</button>
 				</div>
 
